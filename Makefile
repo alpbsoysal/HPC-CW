@@ -1,7 +1,7 @@
 BUILD =./build/
 BIN =./bin/
-CXXFLAGS = -Wall
-.PHONY = clean, dirs, run
+CXXFLAGS = -Wall -g
+.PHONY = clean, dirs, run, docs
 CXX = g++
 
 $(BIN)ShallowWater: $(BUILD)ShallowWater.o
@@ -17,4 +17,7 @@ dirs:
 	mkdir build bin
 
 clean:
-	rm build/* bin/*
+	rm build/* bin/* html/* latex/*
+
+docs:
+	doxygen Doxyfile
