@@ -113,10 +113,26 @@ int main(int argc, char* argv[]) {
     if (vm.count("help"))
     {
         cout << opts << endl;
+        return 0;
     }
 
     const double dT = vm["dT"].as<double>();
     const double T  = vm["T"].as<double>();
     const int Nx = vm["Nx"].as<int>();
     const int Ny = vm["Ny"].as<int>();
+
+    if (vm.count("ic")){
+
+        const int ic = vm["ic"].as<int>();
+
+        if (ic < 1 || 4 < ic)
+        {
+            cout << "Initial conditions not valid. Valid range is 1-4. Exiting program." << endl;
+            return -1;
+        }
+
+    } else {
+        cout << "Initial conditions not specified. Exiting program." << endl;
+        return -1;
+    }
 }
