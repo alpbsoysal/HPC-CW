@@ -1,3 +1,11 @@
+/**
+ * @file ShallowWater.cpp
+ * @author Alp Soysal
+ * @brief A program that solves the shallow water equations using 6th order central differencing and 4th order runge-kutta, for the HPC module coursework.
+ * @version 0.1
+ * @date 2023-03-19
+ */
+
 #include <iostream>
 
 using namespace std;
@@ -6,6 +14,10 @@ using namespace std;
 
 namespace po = boost::program_options;
 
+/**
+ * @class ShallowWater
+ * @brief Implements a numerical solution to the shallow water equations.
+ */
 class ShallowWater {
 
     private:
@@ -23,9 +35,9 @@ class ShallowWater {
 
         void CalculateFluxBLAS();
 
-        void deri_x(double* var, double* der);
+        void deri_x(const double* var, double* der);
 
-        void deri_y(double* var, double* der);
+        void deri_y(const double* var, double* der);
 
 };
 
@@ -49,8 +61,13 @@ void ShallowWater::CalculateFluxBLAS() {
     return;
 }
 
-// Calculate an x derivative using a loop-based method
-void ShallowWater::deri_x(double* var, double* der) {
+/**
+ * @brief Function that calculates the x-derivative of a field VAR and stores it in DER using a loop-based method.
+ * 
+ * @param var Pointer to the input field matrix
+ * @param der Pointer to the output matrix
+ */
+void ShallowWater::deri_x(const double* var, double* der) {
 
     for (int row = 0; row < ny; row++)
     {
@@ -72,7 +89,13 @@ void ShallowWater::deri_x(double* var, double* der) {
     }
 }
 
-void ShallowWater::deri_y(double* var, double* der) {
+/**
+ * @brief Funciton that calculates the y-dericative of a field VAR and stores it in DER using a loop-based method.
+ * 
+ * @param var Pointer to the input field matrix
+ * @param der Pointer to the output matrix
+ */
+void ShallowWater::deri_y(const double* var, double* der) {
 
     for (int col = 0; col < nx; col++)
     {
