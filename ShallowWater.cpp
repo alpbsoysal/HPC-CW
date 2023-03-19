@@ -7,6 +7,7 @@
  */
 
 #include <iostream>
+#include <cmath>
 
 using namespace std;
 
@@ -32,14 +33,13 @@ class ShallowWater {
         ShallowWater(const double& pDT, const double& pT, const int& pNx, const int& pNy, const int& pIc);
         ~ShallowWater();
 
+        void SetInitialConditions(const int& ic);
         void TimeIntegrate();
 
         void CalculateFluxLoop();
-
         void CalculateFluxBLAS();
 
         void deri_x(const double* var, double* der);
-
         void deri_y(const double* var, double* der);
 
 };
@@ -77,6 +77,7 @@ ShallowWater::ShallowWater(const double& pDT, const double& pT, const int& pNx, 
     v = new double[nx*ny];
     h = new double[nx*ny];
 
+    SetInitialConditions(ic);
 }
 
 /**
@@ -88,6 +89,52 @@ ShallowWater::~ShallowWater() {
     delete[] v;
     delete[] h;
 }
+
+/**
+ * @brief Set the initial conditions for the solution.
+ * 
+ * @param ic The index of the initial condition to use
+ */
+void ShallowWater::SetInitialConditions(const int& ic) {
+
+    // Mean surface height
+    double Hm = 10.0;
+
+    double x, y;
+
+    for (int row = 0; row < ny; row++)
+    {
+        for (int col = 0; col < nx; col++)
+        {
+            // Calculate local x and y values
+            x = x0 + col*dx;
+            y = y0 + row*dy;
+
+            // Set both velocity fields to zero
+            u[col*ny + row] = 0;
+            v[col*ny + row] = 0;
+
+            // Set the height field based on the initial condition chosen
+            switch (ic)
+            {
+            case 1:
+                h[col*ny + row] = Hm + exp(-pow((x - 50), 2) / 25);
+                break;
+
+            case 2:
+                h[col*ny + row] = Hm + exp(-pow((y - 50), 2) / 25);
+                break;
+
+            case 3:
+                h[col*ny + row] = Hm + exp(-(pow((x - 50), 2) + pow((y - 50), 2)) / 25);
+                break;
+
+            case 4:
+                h[col*ny + row] = Hm + exp(-(pow((x - 25), 2) + pow((y - 25), 2)) / 25) + exp(-(pow((x - 75), 2) + pow((y - 75), 2)) / 25);
+                break;
+            }
+        }
+    }
 }
 
 // Implement runge-kutta 4
