@@ -22,12 +22,15 @@ class ShallowWater {
 
     private:
         int nx, ny;
-        double dx, dy;
-        double* u, v, h;
+        int ic;
+        double dx, dy, dt;
+        double x0, x1, y0, y1, T;
+        double *u, *v, *h;
 
     public:
 
-        void SetInitialConditions();
+        ShallowWater(const double& pDT, const double& pT, const int& pNx, const int& pNy, const int& pIc);
+        ~ShallowWater();
 
         void TimeIntegrate();
 
@@ -41,8 +44,50 @@ class ShallowWater {
 
 };
 
-void ShallowWater::SetInitialConditions() {
-    return;
+/**
+ * @brief Construct a new Shallow Water object
+ * 
+ * @param pDT Timestep to be used
+ * @param pT  Time to integrate for
+ * @param pNx Number of X discretisations
+ * @param pNy Number of Y discretisations
+ * @param pIc Initial condition to use (1-4)
+ */
+ShallowWater::ShallowWater(const double& pDT, const double& pT, const int& pNx, const int& pNy, const int& pIc) {
+
+    // Initialise default values
+    x0 = 0.0;
+    y0 = 0.0;
+
+    dx = 1;
+    dy = 1;
+
+    // Initialise user inputs
+    dt = pDT;
+    T = pT;
+    nx = pNx;
+    ny = pNy;
+    ic = pIc;
+
+    // Initialise calculated values
+    x1 = x0 + (nx - 1)*dx;
+    y1 = y0 + (ny - 1)*dy;
+
+    u = new double[nx*ny];
+    v = new double[nx*ny];
+    h = new double[nx*ny];
+
+}
+
+/**
+ * @brief Destroy the Shallow Water object
+ */
+ShallowWater::~ShallowWater() {
+    // Deallocate pointers
+    delete[] u;
+    delete[] v;
+    delete[] h;
+}
 }
 
 // Implement runge-kutta 4
@@ -143,10 +188,11 @@ int main(int argc, char* argv[]) {
     const double T  = vm["T"].as<double>();
     const int Nx = vm["Nx"].as<int>();
     const int Ny = vm["Ny"].as<int>();
+    int ic;
 
     if (vm.count("ic")){
 
-        const int ic = vm["ic"].as<int>();
+        ic = vm["ic"].as<int>();
 
         if (ic < 1 || 4 < ic)
         {
@@ -158,4 +204,6 @@ int main(int argc, char* argv[]) {
         cout << "Initial conditions not specified. Exiting program." << endl;
         return -1;
     }
+
+    ShallowWater solver = ShallowWater(dT, T, Nx, Ny, ic);
 }
