@@ -1,3 +1,10 @@
+#include <iostream>
+
+using namespace std;
+
+#include <boost/program_options.hpp>
+
+namespace po = boost::program_options;
 
 class ShallowWater {
 
@@ -85,4 +92,31 @@ void ShallowWater::deri_y(double* var, double* der) {
             der[col*ny + row] = (-1/60*var[col*ny+row-3] + 3/20*var[col*ny+row-2] - 3/4*var[col*ny+row-1] + 3/4*var[col*ny+row+1] - 3/20*var[col*ny+row+2] + 1/60*var[col*ny+row+3])/dy;
         }
     }
+}
+
+int main(int argc, char* argv[]) {
+
+    po::options_description opts("Solves the shallow water equations");
+
+    opts.add_options()
+        ("help,h", "Print help message")
+        ("dT", po::value<double>()->default_value(0.1), "Timestep to use")
+        ("T", po::value<double>()->default_value(80), "Time to integrate for")
+        ("Nx", po::value<int>()->default_value(100), "Number of points in X direction")
+        ("Ny", po::value<int>()->default_value(100), "NUmber of points in Y direction")
+        ("ic", po::value<int>(), "Initial condition to use, 1-4");
+
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, opts), vm);
+    po::notify(vm);
+
+    if (vm.count("help"))
+    {
+        cout << opts << endl;
+    }
+
+    const double dT = vm["dT"].as<double>();
+    const double T  = vm["T"].as<double>();
+    const int Nx = vm["Nx"].as<int>();
+    const int Ny = vm["Ny"].as<int>();
 }
