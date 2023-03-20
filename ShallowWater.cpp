@@ -35,7 +35,7 @@ class ShallowWater {
         void SetInitialConditions(const int& ic);
         void TimeIntegrate();
 
-        void CalculateFluxLoop();
+        void CalculateFluxLoop(double* pU, double* pV, double* pH, double* pKU, double* pKV, double* pKH);
         void CalculateFluxBLAS();
 
         void deri_x(const double* var, double* der);
@@ -137,12 +137,113 @@ void ShallowWater::SetInitialConditions(const int& ic) {
 
 // Implement runge-kutta 4
 void ShallowWater::TimeIntegrate() {
-// calls CalculateFlux_loop() or CalculateFlux_matrix()
-    return;
+
+    double* k1u = new double[nx*ny];
+    double* k1v = new double[nx*ny];
+    double* k1h = new double[nx*ny];
+
+    double* k2u = new double[nx*ny];
+    double* k2v = new double[nx*ny];
+    double* k2h = new double[nx*ny];
+
+    double* k3u = new double[nx*ny];
+    double* k3v = new double[nx*ny];
+    double* k3h = new double[nx*ny];
+
+    double* k4u = new double[nx*ny];
+    double* k4v = new double[nx*ny];
+    double* k4h = new double[nx*ny];
+
+    double* tempU = new double[nx*ny];
+    double* tempV = new double[nx*ny];
+    double* tempH = new double[nx*ny];
+
+    // Total number of timesteps
+    int nt = T/dt + 1;
+
+    // Iterate over timesteps and solve the equation
+    for (int i = 0; i < nt; i++)
+    {
+        // Calculate all k1 matrices
+        CalculateFluxLoop(u, v, h, k1u, k1v, k1h);
+
+        // Calculate y_n + dt*k1/2
+        for (int col = 0; col < nx; col++)
+        {
+            for (int row = 0; row < ny; row++)
+            {
+                tempU[col*ny + row] = u[col*ny + row] + dt*k1u[col*ny + row]/2;
+                tempV[col*ny + row] = v[col*ny + row] + dt*k1v[col*ny + row]/2;
+                tempH[col*ny + row] = h[col*ny + row] + dt*k1h[col*ny + row]/2;
+            }
+        }
+
+        // Calculate k2 matrices
+        CalculateFluxLoop(tempU, tempV, tempH, k2u, k2v, k2h);
+
+        // Calculate y_n + dt*k2/2
+        for (int col = 0; col < nx; col++)
+        {
+            for (int row = 0; row < ny; row++)
+            {
+                tempU[col*ny + row] = u[col*ny + row] + dt*k2u[col*ny + row]/2;
+                tempV[col*ny + row] = v[col*ny + row] + dt*k2v[col*ny + row]/2;
+                tempH[col*ny + row] = h[col*ny + row] + dt*k2h[col*ny + row]/2;
+            }
+        }
+
+        // Calculate k3 matrices
+        CalculateFluxLoop(tempU, tempV, tempH, k3u, k3v, k3h);
+
+        // Calculate y_n + dt*k3
+        for (int col = 0; col < nx; col++)
+        {
+            for (int row = 0; row < ny; row++)
+            {
+                tempU[col*ny + row] = u[col*ny + row] + dt*k3u[col*ny + row];
+                tempV[col*ny + row] = v[col*ny + row] + dt*k3v[col*ny + row];
+                tempH[col*ny + row] = h[col*ny + row] + dt*k3h[col*ny + row];
+            }
+        }
+
+        // Calculate k4 matrices
+        CalculateFluxLoop(tempU, tempV, tempH, k4u, k4v, k4h);
+
+        // Calculate next iteration
+        for (int col = 0; col < nx; col++)
+        {
+            for (int row = 0; row < ny; row++)
+            {
+                u[col*ny + row] = u[col*ny + row] + dt/6*(k1u[col*ny + row] + 2*k2u[col*ny + row] + 2*k3u[col*ny + row] + k4u[col*ny + row]);
+                v[col*ny + row] = v[col*ny + row] + dt/6*(k1v[col*ny + row] + 2*k2v[col*ny + row] + 2*k3v[col*ny + row] + k4v[col*ny + row]);
+                h[col*ny + row] = h[col*ny + row] + dt/6*(k1h[col*ny + row] + 2*k2h[col*ny + row] + 2*k3h[col*ny + row] + k4h[col*ny + row]);
+            }
+        }
+    }
+
+    delete[] k1u;
+    delete[] k1v;
+    delete[] k1h;
+
+    delete[] k2u;
+    delete[] k2v;
+    delete[] k2h;
+
+    delete[] k3u;
+    delete[] k3v;
+    delete[] k3h;
+
+    delete[] k4u;
+    delete[] k4v;
+    delete[] k4h;
+
+    delete[] tempU;
+    delete[] tempV;
+    delete[] tempH;
 }
 
 // Calculate the fluxes for all variables
-void ShallowWater::CalculateFluxLoop() {
+void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double* pKU, double* pKV, double* pKH) {
     // calls deri_x and deri_y
     return;
 }
