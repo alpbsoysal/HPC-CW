@@ -197,7 +197,7 @@ void ShallowWater::TimeIntegrate() {
         switch (method)
         {
         case 0:
-        CalculateFluxLoop(u, v, h, k1u, k1v, k1h);
+            CalculateFluxLoop(u, v, h, k1u, k1v, k1h);
             break;
         case 1:
             CalculateFluxBLAS(u, v, h, k1u, k1v, k1h);
@@ -219,7 +219,7 @@ void ShallowWater::TimeIntegrate() {
         switch (method)
         {
         case 0:
-        CalculateFluxLoop(tempU, tempV, tempH, k2u, k2v, k2h);
+            CalculateFluxLoop(tempU, tempV, tempH, k2u, k2v, k2h);
             break;
         case 1:
             CalculateFluxBLAS(tempU, tempV, tempH, k2u, k2v, k2h);
@@ -241,7 +241,7 @@ void ShallowWater::TimeIntegrate() {
         switch (method)
         {
         case 0:
-        CalculateFluxLoop(tempU, tempV, tempH, k3u, k3v, k3h);
+            CalculateFluxLoop(tempU, tempV, tempH, k3u, k3v, k3h);
             break;
         case 1:
             CalculateFluxBLAS(tempU, tempV, tempH, k3u, k3v, k3h);
@@ -263,7 +263,7 @@ void ShallowWater::TimeIntegrate() {
         switch (method)
         {
         case 0:
-        CalculateFluxLoop(tempU, tempV, tempH, k4u, k4v, k4h);
+            CalculateFluxLoop(tempU, tempV, tempH, k4u, k4v, k4h);
             break;
         case 1:
             CalculateFluxBLAS(tempU, tempV, tempH, k4u, k4v, k4h);
@@ -451,6 +451,65 @@ void ShallowWater::DeriYLoop(const double* var, double* der) {
  */
 void ShallowWater::CalculateFluxBLAS(double* pU, double* pV, double* pH, double* pKU, double* pKV, double* pKH) {
 
+    double* hu = new double[nx*ny];
+    double* hv = new double[nx*ny];
+
+    double* du_dx = new double[nx*ny];
+    double* du_dy = new double[nx*ny];
+    double* dh_dx = new double[nx*ny];
+
+    double* dv_dx = new double[nx*ny];
+    double* dv_dy = new double[nx*ny];
+    double* dh_dy = new double[nx*ny];
+
+    double* dhu_dx = new double[nx*ny];
+    double* dhv_dy = new double[nx*ny];
+
+    // Calculate hu and hv
+    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, 1.0, pH, 1, pU, 1, 0.0, hu, 1);
+    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, 1.0, pH, 1, pV, 1, 0.0, hv, 1);
+
+    // Calculate all derivatives
+
+    DeriXLoop(pU, du_dx);
+    DeriYLoop(pU, du_dy);
+    DeriXLoop(pH, dh_dx);
+
+    DeriXLoop(pV, dv_dx);
+    DeriYLoop(pV, dv_dy);
+    DeriYLoop(pH, dh_dy);
+
+    DeriXLoop(hu, dhu_dx);
+    DeriYLoop(hv, dhv_dy);
+
+    // Calculate fluxes
+    // u
+    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, 1.0, pU, 1, du_dx, 1, 0.0, pKU, 1);
+    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, 1.0, pV, 1, du_dy, 1, 1.0, pKU, 1);
+    cblas_daxpy(nx*ny, G, dh_dx, 1, pKU, 1);
+
+    // v
+    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, 1.0, pU, 1, dv_dx, 1, 0.0, pKV, 1);
+    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, 1.0, pV, 1, dv_dy, 1, 1.0, pKV, 1);
+    cblas_daxpy(nx*ny, G, dh_dy, 1, pKV, 1);
+
+    // h
+    cblas_daxpy(nx*ny, 1.0, dhu_dx, 1, dhv_dy, 1);
+    cblas_dcopy(nx*ny, dhv_dy, 1, pKH, 1);
+
+    delete[] hu;
+    delete[] hv;
+
+    delete[] du_dx;
+    delete[] du_dy;
+    delete[] dh_dx;
+
+    delete[] dv_dx;
+    delete[] dv_dy;
+    delete[] dh_dy;
+
+    delete[] dhu_dx;
+    delete[] dhv_dy;
 }
 /**
  * @brief Outputs the current state of the solution to an output file
