@@ -135,7 +135,10 @@ void ShallowWater::SetInitialConditions(const int& ic) {
     }
 }
 
-// Implement runge-kutta 4
+/**
+ * @brief Solves the initialised shallow water equation systems.
+ * 
+ */
 void ShallowWater::TimeIntegrate() {
 
     double* k1u = new double[nx*ny];
