@@ -17,7 +17,7 @@ dirs:
 	mkdir build bin
 
 clean:
-	rm build/* bin/* html/* latex/*
+	rm -r build bin html latex
 
 docs:
 	doxygen Doxyfile

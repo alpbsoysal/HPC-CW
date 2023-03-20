@@ -23,7 +23,6 @@ class ShallowWater {
 
     private:
         int nx, ny;
-        int ic;
         double dx, dy, dt;
         double x0, x1, y0, y1, T;
         double *u, *v, *h;
@@ -67,7 +66,6 @@ ShallowWater::ShallowWater(const double& pDT, const double& pT, const int& pNx, 
     T = pT;
     nx = pNx;
     ny = pNy;
-    ic = pIc;
 
     // Initialise calculated values
     x1 = x0 + (nx - 1)*dx;
@@ -77,7 +75,7 @@ ShallowWater::ShallowWater(const double& pDT, const double& pT, const int& pNx, 
     v = new double[nx*ny];
     h = new double[nx*ny];
 
-    SetInitialConditions(ic);
+    SetInitialConditions(pIc);
 }
 
 /**
