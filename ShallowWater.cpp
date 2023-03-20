@@ -14,6 +14,7 @@
 using namespace std;
 
 #include <boost/program_options.hpp>
+#include <cblas.h>
 
 namespace po = boost::program_options;
 
@@ -42,23 +43,27 @@ class ShallowWater {
 
     private:
         int nx, ny;
+        int method;
         double dx, dy, dt;
         double x0, x1, y0, y1, T;
         double *u, *v, *h;
 
     public:
 
-        ShallowWater(const double& pDT, const double& pT, const int& pNx, const int& pNy, const int& pIc);
+        ShallowWater(const double& pDT, const double& pT, const int& pNx, const int& pNy, const int& pIc, const int& pMethod);
         ~ShallowWater();
 
         void SetInitialConditions(const int& ic);
         void TimeIntegrate();
 
         void CalculateFluxLoop(double* pU, double* pV, double* pH, double* pKU, double* pKV, double* pKH);
-        void CalculateFluxBLAS();
+        void DeriXLoop(const double* var, double* der);
+        void DeriYLoop(const double* var, double* der);
 
-        void deri_x(const double* var, double* der);
-        void deri_y(const double* var, double* der);
+        void CalculateFluxBLAS(double* pU, double* pV, double* pH, double* pKU, double* pKV, double* pKH);
+        void PopulateMatrix();
+        void DeriXBLAS(const double* var, double* der);
+        void DeriYBLAS(const double* var, double* der);
 
         void FileOutput();
 
@@ -73,7 +78,7 @@ class ShallowWater {
  * @param pNy Number of Y discretisations
  * @param pIc Initial condition to use (1-4)
  */
-ShallowWater::ShallowWater(const double& pDT, const double& pT, const int& pNx, const int& pNy, const int& pIc) {
+ShallowWater::ShallowWater(const double& pDT, const double& pT, const int& pNx, const int& pNy, const int& pIc, const int& pMethod) {
 
     // Initialise default values
     x0 = 0.0;
@@ -87,6 +92,7 @@ ShallowWater::ShallowWater(const double& pDT, const double& pT, const int& pNx, 
     T = pT;
     nx = pNx;
     ny = pNy;
+    method = pMethod;
 
     // Initialise calculated values
     x1 = x0 + (nx - 1)*dx;
@@ -188,7 +194,15 @@ void ShallowWater::TimeIntegrate() {
     for (int i = 0; i < nt; i++)
     {
         // Calculate all k1 matrices
+        switch (method)
+        {
+        case 0:
         CalculateFluxLoop(u, v, h, k1u, k1v, k1h);
+            break;
+        case 1:
+            CalculateFluxBLAS(u, v, h, k1u, k1v, k1h);
+            break;
+        }
 
         // Calculate y_n + dt*k1/2
         for (int col = 0; col < nx; col++)
@@ -202,7 +216,15 @@ void ShallowWater::TimeIntegrate() {
         }
 
         // Calculate k2 matrices
+        switch (method)
+        {
+        case 0:
         CalculateFluxLoop(tempU, tempV, tempH, k2u, k2v, k2h);
+            break;
+        case 1:
+            CalculateFluxBLAS(tempU, tempV, tempH, k2u, k2v, k2h);
+            break;
+        }
 
         // Calculate y_n + dt*k2/2
         for (int col = 0; col < nx; col++)
@@ -216,7 +238,15 @@ void ShallowWater::TimeIntegrate() {
         }
 
         // Calculate k3 matrices
+        switch (method)
+        {
+        case 0:
         CalculateFluxLoop(tempU, tempV, tempH, k3u, k3v, k3h);
+            break;
+        case 1:
+            CalculateFluxBLAS(tempU, tempV, tempH, k3u, k3v, k3h);
+            break;
+        }
 
         // Calculate y_n + dt*k3
         for (int col = 0; col < nx; col++)
@@ -230,7 +260,15 @@ void ShallowWater::TimeIntegrate() {
         }
 
         // Calculate k4 matrices
+        switch (method)
+        {
+        case 0:
         CalculateFluxLoop(tempU, tempV, tempH, k4u, k4v, k4h);
+            break;
+        case 1:
+            CalculateFluxBLAS(tempU, tempV, tempH, k4u, k4v, k4h);
+            break;
+        }
 
         // Calculate next iteration
         for (int col = 0; col < nx; col++)
@@ -305,16 +343,16 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
     }
 
     // Calculate all derivatives
-    deri_x(pU, du_dx);
-    deri_y(pU, du_dy);
-    deri_x(pH, dh_dx);
+    DeriXLoop(pU, du_dx);
+    DeriYLoop(pU, du_dy);
+    DeriXLoop(pH, dh_dx);
 
-    deri_x(pV, dv_dx);
-    deri_y(pV, dv_dy);
-    deri_y(pH, dh_dy);
+    DeriXLoop(pV, dv_dx);
+    DeriYLoop(pV, dv_dy);
+    DeriYLoop(pH, dh_dy);
 
-    deri_x(hu, dhu_dx);
-    deri_y(hv, dhv_dy);
+    DeriXLoop(hu, dhu_dx);
+    DeriYLoop(hv, dhv_dy);
 
     // Calculate fluxes
     for (int col = 0; col < nx; col++)
@@ -345,17 +383,13 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
     delete[] dhv_dy;
 }
 
-void ShallowWater::CalculateFluxBLAS() {
-    return;
-}
-
 /**
  * @brief Function that calculates the x-derivative of a field VAR and stores it in DER using a loop-based method.
  * 
  * @param var Pointer to the input field matrix
  * @param der Pointer to the output matrix
  */
-void ShallowWater::deri_x(const double* var, double* der) {
+void ShallowWater::DeriXLoop(const double* var, double* der) {
 
     for (int row = 0; row < ny; row++)
     {
@@ -383,7 +417,7 @@ void ShallowWater::deri_x(const double* var, double* der) {
  * @param var Pointer to the input field matrix
  * @param der Pointer to the output matrix
  */
-void ShallowWater::deri_y(const double* var, double* der) {
+void ShallowWater::DeriYLoop(const double* var, double* der) {
 
     for (int col = 0; col < nx; col++)
     {
@@ -405,6 +439,19 @@ void ShallowWater::deri_y(const double* var, double* der) {
     }
 }
 
+/**
+ * @brief Calculates the flux (right hand side) of the shallow water equations using variables pU, pV, pH; puts calculated fluxes in pKU, pKV, pKH.
+ * 
+ * @param pU  Input matrix for U
+ * @param pV  Input matrix for V
+ * @param pH  Input matrix for H
+ * @param pKU Output matrix for U
+ * @param pKV Output matrix for V
+ * @param pKH Output matrix for h
+ */
+void ShallowWater::CalculateFluxBLAS(double* pU, double* pV, double* pH, double* pKU, double* pKV, double* pKH) {
+
+}
 /**
  * @brief Outputs the current state of the solution to an output file
  */
@@ -446,6 +493,7 @@ int main(int argc, char* argv[]) {
         ("T", po::value<double>()->default_value(80), "Time to integrate for")
         ("Nx", po::value<int>()->default_value(100), "Number of points in X direction")
         ("Ny", po::value<int>()->default_value(100), "NUmber of points in Y direction")
+        ("method", po::value<int>()->default_value(0), "Method to use. 0 for LOOP-based and 1 for BLAS-based.")
         ("ic", po::value<int>(), "Initial condition to use, 1-4");
 
     po::variables_map vm;
@@ -463,6 +511,7 @@ int main(int argc, char* argv[]) {
     const int Nx = vm["Nx"].as<int>();
     const int Ny = vm["Ny"].as<int>();
     int ic;
+    int method;
 
     if (vm.count("ic")){
 
@@ -479,8 +528,23 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    if (vm.count("method")){
+
+        method = vm["method"].as<int>();
+
+        if (method < 0 || 1 < method)
+        {
+            cout << "Method not valid. Valid range is 0-1. Exiting program." << endl;
+            return -1;
+        }
+
+    } else {
+        cout << "Method not specified. Exiting program." << endl;
+        return -1;
+    }
+
     // Create solver object
-    ShallowWater solver = ShallowWater(dT, T, Nx, Ny, ic);
+    ShallowWater solver = ShallowWater(dT, T, Nx, Ny, ic, method);
 
     // Solve system
     solver.TimeIntegrate();
