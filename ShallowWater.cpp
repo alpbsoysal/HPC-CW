@@ -15,6 +15,8 @@ using namespace std;
 
 namespace po = boost::program_options;
 
+constexpr double G = 9.81;
+
 /**
  * @class ShallowWater
  * @brief Implements a numerical solution to the shallow water equations.
@@ -137,7 +139,6 @@ void ShallowWater::SetInitialConditions(const int& ic) {
 
 /**
  * @brief Solves the initialised shallow water equation systems.
- * 
  */
 void ShallowWater::TimeIntegrate() {
 
@@ -245,10 +246,81 @@ void ShallowWater::TimeIntegrate() {
     delete[] tempH;
 }
 
-// Calculate the fluxes for all variables
+/**
+ * @brief Calculates the flux (right hand side) of the shallow water equations using variables pU, pV, pH; puts calculated fluxes in pKU, pKV, pKH.
+ * 
+ * @param pU  Input matrix for U
+ * @param pV  Input matrix for V
+ * @param pH  Input matrix for H
+ * @param pKU Output matrix for the flux of U
+ * @param pKV Output matrix for the flux of V
+ * @param pKH Output matrix for the flux of H
+ */
 void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double* pKU, double* pKV, double* pKH) {
-    // calls deri_x and deri_y
-    return;
+
+    double* hu = new double[nx*ny];
+    double* hv = new double[nx*ny];
+
+    double* du_dx = new double[nx*ny];
+    double* du_dy = new double[nx*ny];
+    double* dh_dx = new double[nx*ny];
+
+    double* dv_dx = new double[nx*ny];
+    double* dv_dy = new double[nx*ny];
+    double* dh_dy = new double[nx*ny];
+
+    double* dhu_dx = new double[nx*ny];
+    double* dhv_dy = new double[nx*ny];
+
+    // Calculate hu and hv
+    for (int col = 0; col < nx; col++)
+    {
+        for (int row = 0; row < ny; row++)
+        {
+            hu[col*ny + row] = pH[col*ny + row] * pU[col*ny + row];
+            hv[col*ny + row] = pH[col*ny + row] * pV[col*ny + row];
+        }
+    }
+
+    // Calculate all derivatives
+    deri_x(pU, du_dx);
+    deri_y(pU, du_dy);
+    deri_x(pH, dh_dx);
+
+    deri_x(pV, dv_dx);
+    deri_y(pV, dv_dy);
+    deri_y(pH, dh_dy);
+
+    deri_x(hu, dhu_dx);
+    deri_y(hv, dhv_dy);
+
+    // Calculate fluxes
+    for (int col = 0; col < nx; col++)
+    {
+        for (int row = 0; row < ny; row++)
+        {
+            // Calculate the flux of U
+            pKU[col*ny + row] = pU[col*ny + row] * du_dx[col*ny + row] + pV[col*ny + row] * du_dy[col*ny + row] + G*dh_dx[col*ny + row];
+            // Calculate the flux of V
+            pKV[col*ny + row] = pU[col*ny + row] * dv_dx[col*ny + row] + pV[col*ny + row] * dv_dy[col*ny + row] + G*dh_dy[col*ny + row];
+            // Calculate the flux of H
+            pKH[col*ny + row] = dhu_dx[col*ny + row] + dhv_dy[col*ny + row];
+        }
+    }
+
+    delete[] hu;
+    delete[] hv;
+
+    delete[] du_dx;
+    delete[] du_dy;
+    delete[] dh_dx;
+
+    delete[] dv_dx;
+    delete[] dv_dy;
+    delete[] dh_dy;
+
+    delete[] dhu_dx;
+    delete[] dhv_dy;
 }
 
 void ShallowWater::CalculateFluxBLAS() {
