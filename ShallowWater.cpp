@@ -7,6 +7,8 @@
  */
 
 #include <iostream>
+#include <iomanip>
+#include <fstream>
 #include <cmath>
 
 using namespace std;
@@ -42,6 +44,8 @@ class ShallowWater {
 
         void deri_x(const double* var, double* der);
         void deri_y(const double* var, double* der);
+
+        void FileOutput();
 
 };
 
@@ -225,6 +229,9 @@ void ShallowWater::TimeIntegrate() {
         }
     }
 
+    // Output final state to file
+    FileOutput();
+
     delete[] k1u;
     delete[] k1v;
     delete[] k1h;
@@ -381,6 +388,33 @@ void ShallowWater::deri_y(const double* var, double* der) {
             der[col*ny + row] = (-1/60*var[col*ny+row-3] + 3/20*var[col*ny+row-2] - 3/4*var[col*ny+row-1] + 3/4*var[col*ny+row+1] - 3/20*var[col*ny+row+2] + 1/60*var[col*ny+row+3])/dy;
         }
     }
+}
+
+/**
+ * @brief Outputs the current state of the solution to an output file
+ */
+void ShallowWater::FileOutput() {
+
+    ofstream out("output.txt", ios::out | ios::trunc);
+
+    out.precision(5);
+
+    for (int row = 0; row < ny; row++)
+    {
+        for (int col = 0; col < nx; col++)
+        {
+            // Output x and y location
+            out << setw(4) << "x" << col << setw(4) << " y" << row << " ";
+
+            // Output variables
+            out << u << " " << v << " " << h << endl;
+        }
+
+        // Output empty line after column
+        out << endl;
+    }
+
+    out.close();
 }
 
 int main(int argc, char* argv[]) {
