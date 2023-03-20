@@ -46,7 +46,7 @@ class ShallowWater {
         int method;
         double dx, dy, dt;
         double x0, x1, y0, y1, T;
-        double *u, *v, *h;
+        double *u, *v, *h, *A;
 
     public:
 
@@ -102,7 +102,14 @@ ShallowWater::ShallowWater(const double& pDT, const double& pT, const int& pNx, 
     v = new double[nx*ny];
     h = new double[nx*ny];
 
+    // Set initial conditions
     SetInitialConditions(pIc);
+
+    // Populate A matrix if using BLAS
+    if (method)
+    {
+        PopulateMatrix();
+    }
 }
 
 /**
@@ -113,6 +120,7 @@ ShallowWater::~ShallowWater() {
     delete[] u;
     delete[] v;
     delete[] h;
+    delete[] A;
 }
 
 /**
@@ -511,6 +519,36 @@ void ShallowWater::CalculateFluxBLAS(double* pU, double* pV, double* pH, double*
     delete[] dhu_dx;
     delete[] dhv_dy;
 }
+
+/**
+ * @brief Populate the A matrix for BLAS based derivatives
+ * 
+ */
+void ShallowWater::PopulateMatrix() {
+
+    int n;
+
+    if (nx > ny)
+    {
+        n = nx;
+    } else {
+        n = ny;
+    }
+
+    A = new double[n*n];
+
+    for (int col = 0; col < n; col++)
+    {
+        A[col*7 + 0] = -1.0/60.0;
+        A[col*7 + 1] = 3.0/20.0;
+        A[col*7 + 2] = -3.0/4.0;
+        A[col*7 + 3] = 0.0;
+        A[col*7 + 4] = 3.0/4.0;
+        A[col*7 + 5] = -3.0/20.0;
+        A[col*7 + 6] = -1.0/60.0; 
+    }
+}
+
 /**
  * @brief Outputs the current state of the solution to an output file
  */
