@@ -1,7 +1,7 @@
 BUILD =./build/
 BIN =./bin/
 CXXFLAGS = -Wall -g
-.PHONY = clean, dirs, run, docs
+.PHONY = clean, dirs, docs, test1, test2, test3, test4
 CXX = g++
 
 $(BIN)ShallowWater: $(BUILD)ShallowWater.o
@@ -10,8 +10,17 @@ $(BIN)ShallowWater: $(BUILD)ShallowWater.o
 $(BUILD)%.o: %.cpp
 	$(CXX) $(CXXFLAGS) -o $@ -c $<
 
-run:
-	$(BIN)ShallowWater
+test1:
+	$(BIN)ShallowWater --dT 0.1 --T 80 --Nx 100 --Ny 100 --ic 1
+
+test2:
+	$(BIN)ShallowWater --dT 0.1 --T 80 --Nx 100 --Ny 100 --ic 2
+
+test3:
+	$(BIN)ShallowWater --dT 0.1 --T 80 --Nx 100 --Ny 100 --ic 3
+
+test4:
+	$(BIN)ShallowWater --dT 0.1 --T 80 --Nx 100 --Ny 100 --ic 4
 
 dirs:
 	mkdir build bin
