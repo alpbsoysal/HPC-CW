@@ -5,22 +5,22 @@ CXXFLAGS = -Wall -g
 CXX = g++
 
 $(BIN)ShallowWater: $(BUILD)ShallowWater.o
-	$(CXX) -o $@ $^ -lboost_program_options
+	$(CXX) -o $@ $^ -lboost_program_options -lblas
 
 $(BUILD)%.o: %.cpp
 	$(CXX) $(CXXFLAGS) -o $@ -c $<
 
 test1:
-	$(BIN)ShallowWater --dT 0.1 --T 80 --Nx 100 --Ny 100 --ic 1
+	$(BIN)ShallowWater --dT 0.1 --T 80 --Nx 100 --Ny 100 --ic 1 --method 1
 
 test2:
-	$(BIN)ShallowWater --dT 0.1 --T 80 --Nx 100 --Ny 100 --ic 2
+	$(BIN)ShallowWater --dT 0.1 --T 80 --Nx 100 --Ny 100 --ic 2 --method 0
 
 test3:
-	$(BIN)ShallowWater --dT 0.1 --T 80 --Nx 100 --Ny 100 --ic 3
+	$(BIN)ShallowWater --dT 0.1 --T 80 --Nx 100 --Ny 100 --ic 3 --method 1
 
 test4:
-	$(BIN)ShallowWater --dT 0.1 --T 80 --Nx 100 --Ny 100 --ic 4
+	$(BIN)ShallowWater --dT 0.1 --T 80 --Nx 100 --Ny 100 --ic 4 --method 0
 
 dirs:
 	mkdir build bin
