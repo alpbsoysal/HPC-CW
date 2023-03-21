@@ -46,7 +46,7 @@ class ShallowWater {
         int method;
         double dx, dy, dt;
         double x0, x1, y0, y1, T;
-        double *u, *v, *h, *A;
+        double *u, *v, *h, *Ax, *Ay;
 
     public:
 
@@ -120,7 +120,8 @@ ShallowWater::~ShallowWater() {
     delete[] u;
     delete[] v;
     delete[] h;
-    delete[] A;
+    delete[] Ax;
+    delete[] Ay;
 }
 
 /**
@@ -522,31 +523,58 @@ void ShallowWater::CalculateFluxBLAS(double* pU, double* pV, double* pH, double*
 
 /**
  * @brief Populate the A matrix for BLAS based derivatives
- * 
  */
 void ShallowWater::PopulateMatrix() {
 
-    int n;
+    Ax = new double[nx*nx]();
+    Ay = new double[ny*ny]();
 
-    if (nx > ny)
+    double* Arow = new double[ny]();
+    double* Acol = new double[nx]();
+
+    Arow[1] = Acol[1] = -3.0/4.0;
+    Arow[2] = Acol[2] = 3.0/20.0;
+    Arow[3] = Acol[3] = -1.0/60.0;
+    Arow[ny-3] = Acol[nx-3] = 1.0/60.0;
+    Arow[ny-2] = Acol[nx-2] = -3.0/20.0;
+    Arow[ny-1] = Acol[nx-1] = 3.0/4.0;
+
+    for (int row = 0; row < ny; row++)
     {
-        n = nx;
-    } else {
-        n = ny;
+        for (int col = 0; col < ny; col++)
+        {
+            Ay[col*ny+row] = Arow[(ny-col+row)%ny];
+        }
     }
 
-    A = new double[n*n];
-
-    for (int col = 0; col < n; col++)
+    for (int row = 0; row < nx; row++)
     {
-        A[col*7 + 0] = -1.0/60.0;
-        A[col*7 + 1] = 3.0/20.0;
-        A[col*7 + 2] = -3.0/4.0;
-        A[col*7 + 3] = 0.0;
-        A[col*7 + 4] = 3.0/4.0;
-        A[col*7 + 5] = -3.0/20.0;
-        A[col*7 + 6] = -1.0/60.0; 
+        for (int col = 0; col < nx; col++)
+    {
+            Ax[col*nx+row] = Acol[(nx-col+row)%nx];
+        }
     }
+    }
+
+/**
+ * @brief Function that calculates the x-derivative of a field VAR and stores it in DER using a matrix-based method.
+ * 
+ * @param var Pointer to the input field matrix
+ * @param der Pointer to the output matrix
+ */
+void ShallowWater::DeriXBLAS(const double* var, double* der) {
+
+
+    }
+
+/**
+ * @brief Function that calculates the y-derivative of a field VAR and stores it in DER using a matrix-based method.
+ * 
+ * @param var Pointer to the input field matrix
+ * @param der Pointer to the output matrix
+ */
+void ShallowWater::DeriYBLAS(const double* var, double* der) {
+
 }
 
 /**
