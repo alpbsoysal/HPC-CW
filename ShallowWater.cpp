@@ -2,7 +2,7 @@
  * @file ShallowWater.cpp
  * @author Alp Soysal
  * @brief A program that solves the shallow water equations using 6th order central differencing and 4th order runge-kutta, for the HPC module coursework.
- * @version 0.1
+ * @version 0.2
  * @date 2023-03-19
  */
 
@@ -480,16 +480,16 @@ void ShallowWater::CalculateFluxBLAS(double* pU, double* pV, double* pH, double*
 
     // Calculate all derivatives
 
-    DeriXLoop(pU, du_dx);
-    DeriYLoop(pU, du_dy);
-    DeriXLoop(pH, dh_dx);
+    DeriXBLAS(pU, du_dx);
+    DeriYBLAS(pU, du_dy);
+    DeriXBLAS(pH, dh_dx);
 
-    DeriXLoop(pV, dv_dx);
-    DeriYLoop(pV, dv_dy);
-    DeriYLoop(pH, dh_dy);
+    DeriXBLAS(pV, dv_dx);
+    DeriYBLAS(pV, dv_dy);
+    DeriYBLAS(pH, dh_dy);
 
-    DeriXLoop(hu, dhu_dx);
-    DeriYLoop(hv, dhv_dy);
+    DeriXBLAS(hu, dhu_dx);
+    DeriYBLAS(hv, dhv_dy);
 
     // Calculate fluxes
     // u
@@ -550,11 +550,11 @@ void ShallowWater::PopulateMatrix() {
     for (int row = 0; row < nx; row++)
     {
         for (int col = 0; col < nx; col++)
-    {
+        {
             Ax[col*nx+row] = Acol[(nx-col+row)%nx];
         }
     }
-    }
+}
 
 /**
  * @brief Function that calculates the x-derivative of a field VAR and stores it in DER using a matrix-based method.
@@ -564,8 +564,10 @@ void ShallowWater::PopulateMatrix() {
  */
 void ShallowWater::DeriXBLAS(const double* var, double* der) {
 
+    // Calculate derivative using matrix-matrix multiplication
+    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, ny, nx, nx, 1.0, var, ny, Ax, nx, 0.0, der, ny);
 
-    }
+}
 
 /**
  * @brief Function that calculates the y-derivative of a field VAR and stores it in DER using a matrix-based method.
@@ -575,6 +577,8 @@ void ShallowWater::DeriXBLAS(const double* var, double* der) {
  */
 void ShallowWater::DeriYBLAS(const double* var, double* der) {
 
+    // Calculate derivative using matrix-matrix multiplication
+    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, ny, nx, ny, 1.0, Ay, ny, var, ny, 0.0, der, ny);
 }
 
 /**
