@@ -331,13 +331,10 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
     double* dhv_dy = new double[nx*ny];
 
     // Calculate hu and hv
-    for (int col = 0; col < nx; col++)
+    for (int i = 0; i < nx*ny; i++)
     {
-        for (int row = 0; row < ny; row++)
-        {
-            hu[col*ny + row] = pH[col*ny + row] * pU[col*ny + row];
-            hv[col*ny + row] = pH[col*ny + row] * pV[col*ny + row];
-        }
+        hu[i] = pH[i] * pU[i];
+        hv[i] = pH[i] * pV[i];
     }
 
     // Calculate all derivatives
