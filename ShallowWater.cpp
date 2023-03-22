@@ -356,7 +356,7 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
         {
             // Calculate hu and hv
             dhu_dx[i] = pH[i]*du_dx[i] + pU[i]*dh_dx[i];
-            dhv_dy[i] = pH[i]*dv_dy[i] + pV[i]*dh_dx[i];
+            dhv_dy[i] = pH[i]*dv_dy[i] + pV[i]*dh_dy[i];
 
             // Calculate the flux of U
             pKU[i] = pU[i] * du_dx[i] + pV[i] * du_dy[i] + G*dh_dx[i];
@@ -487,10 +487,6 @@ void ShallowWater::CalculateFluxBLAS(double* pU, double* pV, double* pH, double*
     double* dhu_dx = new double[nx*ny];
     double* dhv_dy = new double[nx*ny];
 
-    // Calculate hu and hv
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, 1.0, pH, 1, pU, 1, 0.0, hu, 1);
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, 1.0, pH, 1, pV, 1, 0.0, hv, 1);
-
     // Calculate all derivatives
 
     DeriXBLAS(pU, du_dx);
@@ -501,23 +497,22 @@ void ShallowWater::CalculateFluxBLAS(double* pU, double* pV, double* pH, double*
     DeriYBLAS(pV, dv_dy);
     DeriYBLAS(pH, dh_dy);
 
-    DeriXBLAS(hu, dhu_dx);
-    DeriYBLAS(hv, dhv_dy);
-
     // Calculate fluxes
     // u
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, 1.0, pU, 1, du_dx, 1, 0.0, pKU, 1);
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, 1.0, pV, 1, du_dy, 1, 1.0, pKU, 1);
-    cblas_daxpy(nx*ny, G, dh_dx, 1, pKU, 1);
+    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pU, 1, du_dx, 1, 0.0, pKU, 1);
+    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pV, 1, du_dy, 1, 1.0, pKU, 1);
+    cblas_daxpy(nx*ny, -G, dh_dx, 1, pKU, 1);
 
     // v
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, 1.0, pU, 1, dv_dx, 1, 0.0, pKV, 1);
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, 1.0, pV, 1, dv_dy, 1, 1.0, pKV, 1);
-    cblas_daxpy(nx*ny, G, dh_dy, 1, pKV, 1);
+    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pU, 1, dv_dx, 1, 0.0, pKV, 1);
+    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pV, 1, dv_dy, 1, 1.0, pKV, 1);
+    cblas_daxpy(nx*ny, -G, dh_dy, 1, pKV, 1);
 
     // h
-    cblas_daxpy(nx*ny, 1.0, dhu_dx, 1, dhv_dy, 1);
-    cblas_dcopy(nx*ny, dhv_dy, 1, pKH, 1);
+    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pH, 1, du_dx, 1, 0.0, pKH, 1);
+    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pU, 1, dh_dx, 1, 1.0, pKH, 1);
+    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pH, 1, dv_dy, 1, 1.0, pKH, 1);
+    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pV, 1, dh_dy, 1, 1.0, pKH, 1);
 
     delete[] hu;
     delete[] hv;
@@ -690,7 +685,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    const double dT = vm["dT"].as<double>();
+    const double dT = vm["dt"].as<double>();
     const double T  = vm["T"].as<double>();
     const int Nx = vm["Nx"].as<int>();
     const int Ny = vm["Ny"].as<int>();
