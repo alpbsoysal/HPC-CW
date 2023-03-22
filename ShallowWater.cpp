@@ -47,7 +47,7 @@ class ShallowWater {
         int method;
         double dx, dy, dt;
         double x0, x1, y0, y1, T;
-        double *u, *v, *h, *Ax, *Ay;
+        double *u, *v, *h, *A, *Aut, *Alt;
 
     public:
 
@@ -121,8 +121,10 @@ ShallowWater::~ShallowWater() {
     delete[] u;
     delete[] v;
     delete[] h;
-    delete[] Ax;
-    delete[] Ay;
+
+    if(method){
+        delete[] A;
+    }
 }
 
 /**
@@ -494,7 +496,7 @@ void ShallowWater::CalculateFluxBLAS(double* pU, double* pV, double* pH, double*
     DeriXBLAS(pU, du_dx);
     DeriYBLAS(pU, du_dy);
     DeriXBLAS(pH, dh_dx);
-
+ 
     DeriXBLAS(pV, dv_dx);
     DeriYBLAS(pV, dv_dy);
     DeriYBLAS(pH, dh_dy);
@@ -537,34 +539,43 @@ void ShallowWater::CalculateFluxBLAS(double* pU, double* pV, double* pH, double*
  */
 void ShallowWater::PopulateMatrix() {
 
-    Ax = new double[nx*nx]();
-    Ay = new double[ny*ny]();
+    int n;
 
-    double* Arow = new double[ny]();
-    double* Acol = new double[nx]();
-
-    Arow[1] = Acol[1] = -3.0/4.0;
-    Arow[2] = Acol[2] = 3.0/20.0;
-    Arow[3] = Acol[3] = -1.0/60.0;
-    Arow[ny-3] = Acol[nx-3] = 1.0/60.0;
-    Arow[ny-2] = Acol[nx-2] = -3.0/20.0;
-    Arow[ny-1] = Acol[nx-1] = 3.0/4.0;
-
-    for (int row = 0; row < ny; row++)
+    if (nx > ny)
     {
-        for (int col = 0; col < ny; col++)
-        {
-            Ay[col*ny+row] = Arow[(ny-col+row)%ny];
-        }
+        n = nx;
+    } else {
+        n = ny;
     }
 
-    for (int row = 0; row < nx; row++)
+    A = new double[7*n];
+
+    for (int col = 0; col < n; col++)
     {
-        for (int col = 0; col < nx; col++)
-        {
-            Ax[col*nx+row] = Acol[(nx-col+row)%nx];
-        }
+        A[col*7 + 0] = 1.0/60.0;
+        A[col*7 + 1] = -3.0/20.0;
+        A[col*7 + 2] = 3.0/4.0;
+        A[col*7 + 3] = 0.0;
+        A[col*7 + 4] = -3.0/4.0;
+        A[col*7 + 5] = 3.0/20.0;
+        A[col*7 + 6] = -1.0/60.0; 
     }
+
+    Aut = new double[6];
+    Aut[0] = -1.0/60.0;
+    Aut[1] = 3.0/20.0;
+    Aut[2] = -1.0/60.0;
+    Aut[3] = -3.0/4.0;
+    Aut[4] = 3.0/20.0;
+    Aut[5] = -1.0/60.0;
+
+    Alt = new double[6];
+    Alt[0] = 1.0/60.0;
+    Alt[1] = -3.0/20.0;
+    Alt[2] = 3.0/4.0;
+    Alt[3] = 1.0/60.0;
+    Alt[4] = -3.0/20.0;
+    Alt[5] = 1.0/60.0;
 }
 
 /**
@@ -575,8 +586,24 @@ void ShallowWater::PopulateMatrix() {
  */
 void ShallowWater::DeriXBLAS(const double* var, double* der) {
 
-    // Calculate derivative using matrix-matrix multiplication
-    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, ny, nx, nx, 1.0, var, ny, Ax, nx, 0.0, der, ny);
+    double* tvar = new double[nx*ny];
+    double* bc = new double[6];
+
+    cblas_dcopy(nx*ny, var, 1, tvar, 1);
+
+    for (int row = 0; row < ny; row++)
+    {
+        cblas_dcopy(3, tvar+row, ny, bc, 1);
+        cblas_dcopy(3, tvar+ny*(nx-3)+row, ny, bc+3, 1);
+
+        cblas_dgbmv(CblasColMajor, CblasNoTrans, nx, nx, 3, 3, 1.0, A, 7, tvar+row, ny, 0, der+row, ny);
+
+        cblas_dtpmv(CblasColMajor, CblasLower, CblasNoTrans, CblasNonUnit, 3, Alt, bc, 1);
+        cblas_dtpmv(CblasColMajor, CblasUpper, CblasNoTrans, CblasNonUnit, 3, Aut, bc+3, 1);
+
+        cblas_daxpy(3, 1.0, bc, 1, der+ny*(nx-3)+row, ny);
+        cblas_daxpy(3, 1.0, bc+3, 1, der+row, ny);
+    }
 
 }
 
@@ -588,8 +615,25 @@ void ShallowWater::DeriXBLAS(const double* var, double* der) {
  */
 void ShallowWater::DeriYBLAS(const double* var, double* der) {
 
-    // Calculate derivative using matrix-matrix multiplication
-    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, ny, nx, ny, 1.0, Ay, ny, var, ny, 0.0, der, ny);
+    double* tvar = new double[nx*ny];
+    double* bc = new double[6];
+
+    cblas_dcopy(nx*ny, var, 1, tvar, 1);
+
+    for (int col = 0; col < nx; col++)
+    {
+        cblas_dcopy(3, tvar+col*ny, 1, bc, 1);
+        cblas_dcopy(3, tvar+col*ny+ny-3, 1, bc+3, 1);
+
+        cblas_dgbmv(CblasColMajor, CblasNoTrans, ny, ny, 3, 3, 1.0, A, 7, tvar+col*ny, 1, 0, der+col*ny, 1);
+
+        cblas_dtpmv(CblasColMajor, CblasLower, CblasNoTrans, CblasNonUnit, 3, Alt, bc, 1);
+        cblas_dtpmv(CblasColMajor, CblasUpper, CblasNoTrans, CblasNonUnit, 3, Aut, bc+3, 1);
+
+        cblas_daxpy(3, 1.0, bc, 1, der+col*ny+ny-3, 1);
+        cblas_daxpy(3, 1.0, bc+3, 1, der+col*ny, 1);
+    }
+
 }
 
 /**
@@ -629,7 +673,7 @@ int main(int argc, char* argv[]) {
 
     opts.add_options()
         ("help,h", "Print help message")
-        ("dT", po::value<double>()->default_value(0.1), "Timestep to use")
+        ("dt", po::value<double>()->default_value(0.1), "Timestep to use")
         ("T", po::value<double>()->default_value(80), "Time to integrate for")
         ("Nx", po::value<int>()->default_value(100), "Number of points in X direction")
         ("Ny", po::value<int>()->default_value(100), "NUmber of points in Y direction")
