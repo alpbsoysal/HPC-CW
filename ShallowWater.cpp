@@ -111,7 +111,7 @@ ShallowWater::ShallowWater(const double& pDT, const double& pT, const int& pNx, 
     {
         PopulateMatrix();
     }
-}
+} 
 
 /**
  * @brief Destroy the Shallow Water object
@@ -121,9 +121,9 @@ ShallowWater::~ShallowWater() {
     delete[] u;
     delete[] v;
     delete[] h;
-
-    if(method){
-        delete[] A;
+    if(method) {
+        delete[] Aut;
+        delete[] Alt;
     }
 }
 
