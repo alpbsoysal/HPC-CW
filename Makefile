@@ -1,6 +1,6 @@
 BUILD =./build/
 BIN =./bin/
-CXXFLAGS = -Wall -g
+CXXFLAGS = -Wall -g -O3
 .PHONY = clean, dirs, docs, test1, test2, test3, test4, analyze
 CXX = g++
 

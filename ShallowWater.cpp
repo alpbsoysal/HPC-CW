@@ -217,9 +217,9 @@ void ShallowWater::TimeIntegrate() {
         for (int i = 0; i < nx*ny; i++)
         {
 
-            tempU[i] = u[i] + dt*k1u[i]/2;
-            tempV[i] = v[i] + dt*k1v[i]/2;
-            tempH[i] = h[i] + dt*k1h[i]/2;
+            tempU[i] = u[i] + dt*k1u[i]*0.5;
+            tempV[i] = v[i] + dt*k1v[i]*0.5;
+            tempH[i] = h[i] + dt*k1h[i]*0.5;
         }
 
         // Calculate k2 matrices
@@ -236,9 +236,9 @@ void ShallowWater::TimeIntegrate() {
         // Calculate y_n + dt*k2/2
         for (int i = 0; i < nx*ny; i++)
         {
-            tempU[i] = u[i] + dt*k2u[i]/2;
-            tempV[i] = v[i] + dt*k2v[i]/2;
-            tempH[i] = h[i] + dt*k2h[i]/2;
+            tempU[i] = u[i] + dt*k2u[i]*0.5;
+            tempV[i] = v[i] + dt*k2v[i]*0.5;
+            tempH[i] = h[i] + dt*k2h[i]*0.5;
         }
 
         // Calculate k3 matrices
@@ -390,6 +390,7 @@ void ShallowWater::DeriXLoop(const double* var, double* der) {
     double c5 = -3.0/20.0;
     double c6 =  1.0/60.0;
     double ddx = 1.0/dx;
+    int index;
 
     for (int row = 0; row < ny; row++)
     {
@@ -398,16 +399,17 @@ void ShallowWater::DeriXLoop(const double* var, double* der) {
         der[1*ny + row] = (c1*var[(nx-2)*ny+row] + c2*var[(nx-1)*ny+row] + c3*var[row] + c4*var[2*ny+row] + c5*var[3*ny+row] + c6*var[4*ny+row])*ddx;
         der[2*ny + row] = (c1*var[(nx-1)*ny+row] + c2*var[row] + c3*var[ny+row] + c4*var[3*ny+row] + c5*var[4*ny+row] + c6*var[5*ny+row])*ddx;
 
+        // elements between first 3 and last 3 elements
+        for (int col = 3; col < nx-3; col++)
+        {
+            index = col*ny+row;
+            der[index] = (c1*var[index-3*ny] + c2*var[index-2*ny] + c3*var[index-ny] + c4*var[index+ny] + c5*var[index+2*ny] + c6*var[index+3*ny])*ddx;
+        }
+
         // last 3 elements in row
         der[(nx-3)*ny + row] = (c1*var[(nx-6)*ny+row] + c2*var[(nx-5)*ny+row] + c3*var[(nx-4)*ny+row] + c4*var[(nx-2)*ny+row] + c5*var[(nx-1)*ny+row] + c6*var[row])*ddx;
         der[(nx-2)*ny + row] = (c1*var[(nx-5)*ny+row] + c2*var[(nx-4)*ny+row] + c3*var[(nx-3)*ny+row] + c4*var[(nx-1)*ny+row] + c5*var[row] + c6*var[ny+row])*ddx;
         der[(nx-1)*ny + row] = (c1*var[(nx-4)*ny+row] + c2*var[(nx-3)*ny+row] + c3*var[(nx-2)*ny+row] + c4*var[row] + c5*var[ny+row] + c6*var[2*ny+row])*ddx;
-
-        // elements between first 3 and last 3 elements
-        for (int col = 3; col < nx-3; col++)
-        {
-            der[col*ny + row] = (c1*var[(col-3)*ny+row] + c2*var[(col-2)*ny+row] + c3*var[(col-1)*ny+row] + c4*var[(col+1)*ny+row] + c5*var[(col+2)*ny+row] + c6*var[(col+3)*ny+row])*ddx;
-        }
     }
 }
 
@@ -426,24 +428,27 @@ void ShallowWater::DeriYLoop(const double* var, double* der) {
     double c5 = -3.0/20.0;
     double c6 =  1.0/60.0;
     double ddy = 1.0/dy;
+    int index, colindex;
 
     for (int col = 0; col < nx; col++)
     {
+        colindex = col*ny;
         // first 3 elements in row
-        der[col*ny + 0] = (c1*var[col*ny+ny-3] + c2*var[col*ny+ny-2] + c3*var[col*ny+ny-1] + c4*var[col*ny+1] + c5*var[col*ny+2] + c6*var[col*ny+3])*ddy;
-        der[col*ny + 1] = (c1*var[col*ny+ny-2] + c2*var[col*ny+ny-1] + c3*var[col*ny] + c4*var[col*ny+2] + c5*var[col*ny+3] + c6*var[col*ny+4])*ddy;
-        der[col*ny + 2] = (c1*var[col*ny+ny-1] + c2*var[col*ny] + c3*var[col*ny+1] + c4*var[col*ny+3] + c5*var[col*ny+4] + c6*var[col*ny+5])*ddy;
+        der[colindex + 0] = (c1*var[colindex+ny-3] + c2*var[colindex+ny-2] + c3*var[colindex+ny-1] + c4*var[colindex+1] + c5*var[colindex+2] + c6*var[colindex+3])*ddy;
+        der[colindex + 1] = (c1*var[colindex+ny-2] + c2*var[colindex+ny-1] + c3*var[colindex] + c4*var[colindex+2] + c5*var[colindex+3] + c6*var[colindex+4])*ddy;
+        der[colindex + 2] = (c1*var[colindex+ny-1] + c2*var[colindex] + c3*var[colindex+1] + c4*var[colindex+3] + c5*var[colindex+4] + c6*var[colindex+5])*ddy;
 
         // elements between first 3 and last 3 elements
         for (int row = 3; row < ny-3; row++)
         {
-            der[col*ny + row] = (c1*var[col*ny+row-3] + c2*var[col*ny+row-2] + c3*var[col*ny+row-1] + c4*var[col*ny+row+1] + c5*var[col*ny+row+2] + c6*var[col*ny+row+3])*ddy;
+            index = colindex+row;
+            der[index] = (c1*var[index-3] + c2*var[index-2] + c3*var[index-1] + c4*var[index+1] + c5*var[index+2] + c6*var[index+3])*ddy;
         }
 
         // last 3 elements in row
-        der[col*ny + ny-3] = (c1*var[col*ny+ny-6] + c2*var[col*ny+ny-5] + c3*var[col*ny+ny-4] + c4*var[col*ny+ny-2] + c5*var[col*ny+ny-1] + c6*var[col*ny])*ddy;
-        der[col*ny + ny-2] = (c1*var[col*ny+ny-5] + c2*var[col*ny+ny-4] + c3*var[col*ny+ny-3] + c4*var[col*ny+ny-1] + c5*var[col*ny] + c6*var[col*ny+1])*ddy;
-        der[col*ny + ny-1] = (c1*var[col*ny+ny-4] + c2*var[col*ny+ny-3] + c3*var[col*ny+ny-2] + c4*var[col*ny] + c5*var[col*ny+1] + c6*var[col*ny+2]);
+        der[colindex + ny-3] = (c1*var[colindex+ny-6] + c2*var[colindex+ny-5] + c3*var[colindex+ny-4] + c4*var[colindex+ny-2] + c5*var[colindex+ny-1] + c6*var[colindex])*ddy;
+        der[colindex + ny-2] = (c1*var[colindex+ny-5] + c2*var[colindex+ny-4] + c3*var[colindex+ny-3] + c4*var[colindex+ny-1] + c5*var[colindex] + c6*var[colindex+1])*ddy;
+        der[colindex + ny-1] = (c1*var[colindex+ny-4] + c2*var[colindex+ny-3] + c3*var[colindex+ny-2] + c4*var[colindex] + c5*var[colindex+1] + c6*var[colindex+2])*ddy;
     }
 }
 
