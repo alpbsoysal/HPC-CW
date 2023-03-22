@@ -15,6 +15,7 @@ using namespace std;
 
 #include <boost/program_options.hpp>
 #include <cblas.h>
+#include <omp.h>
 
 namespace po = boost::program_options;
 
@@ -136,6 +137,7 @@ void ShallowWater::SetInitialConditions(const int& ic) {
 
     double x, y;
 
+    #pragma omp parallel for default(shared) private(x, y) schedule(static)
     for (int row = 0; row < ny; row++)
     {
         for (int col = 0; col < nx; col++)
@@ -214,6 +216,7 @@ void ShallowWater::TimeIntegrate() {
         }
 
         // Calculate y_n + dt*k1/2
+        #pragma omp for schedule(static)
         for (int col = 0; col < nx; col++)
         {
             for (int row = 0; row < ny; row++)
@@ -236,6 +239,7 @@ void ShallowWater::TimeIntegrate() {
         }
 
         // Calculate y_n + dt*k2/2
+        #pragma omp for schedule(static)
         for (int col = 0; col < nx; col++)
         {
             for (int row = 0; row < ny; row++)
@@ -258,6 +262,7 @@ void ShallowWater::TimeIntegrate() {
         }
 
         // Calculate y_n + dt*k3
+        #pragma omp for schedule(static)
         for (int col = 0; col < nx; col++)
         {
             for (int row = 0; row < ny; row++)
@@ -280,6 +285,7 @@ void ShallowWater::TimeIntegrate() {
         }
 
         // Calculate next iteration
+        #pragma omp for schedule(static)
         for (int col = 0; col < nx; col++)
         {
             for (int row = 0; row < ny; row++)
@@ -341,39 +347,44 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
     double* dhu_dx = new double[nx*ny];
     double* dhv_dy = new double[nx*ny];
 
-    // Calculate hu and hv
-    for (int col = 0; col < nx; col++)
+    #pragma omp parallel default(shared)
     {
-        for (int row = 0; row < ny; row++)
+        // Calculate hu and hv
+        #pragma omp for schedule(static)
+        for (int col = 0; col < nx; col++)
         {
-            hu[col*ny + row] = pH[col*ny + row] * pU[col*ny + row];
-            hv[col*ny + row] = pH[col*ny + row] * pV[col*ny + row];
+            for (int row = 0; row < ny; row++)
+            {
+                hu[col*ny + row] = pH[col*ny + row] * pU[col*ny + row];
+                hv[col*ny + row] = pH[col*ny + row] * pV[col*ny + row];
+            }
         }
-    }
 
-    // Calculate all derivatives
-    DeriXLoop(pU, du_dx);
-    DeriYLoop(pU, du_dy);
-    DeriXLoop(pH, dh_dx);
+        // Calculate all derivatives
+        DeriXLoop(pU, du_dx);
+        DeriYLoop(pU, du_dy);
+        DeriXLoop(pH, dh_dx);
 
-    DeriXLoop(pV, dv_dx);
-    DeriYLoop(pV, dv_dy);
-    DeriYLoop(pH, dh_dy);
+        DeriXLoop(pV, dv_dx);
+        DeriYLoop(pV, dv_dy);
+        DeriYLoop(pH, dh_dy);
 
-    DeriXLoop(hu, dhu_dx);
-    DeriYLoop(hv, dhv_dy);
+        DeriXLoop(hu, dhu_dx);
+        DeriYLoop(hv, dhv_dy);
 
-    // Calculate fluxes
-    for (int col = 0; col < nx; col++)
-    {
-        for (int row = 0; row < ny; row++)
+        // Calculate fluxes
+        #pragma omp for schedule(static)
+        for (int col = 0; col < nx; col++)
         {
-            // Calculate the flux of U
-            pKU[col*ny + row] = pU[col*ny + row] * du_dx[col*ny + row] + pV[col*ny + row] * du_dy[col*ny + row] + G*dh_dx[col*ny + row];
-            // Calculate the flux of V
-            pKV[col*ny + row] = pU[col*ny + row] * dv_dx[col*ny + row] + pV[col*ny + row] * dv_dy[col*ny + row] + G*dh_dy[col*ny + row];
-            // Calculate the flux of H
-            pKH[col*ny + row] = dhu_dx[col*ny + row] + dhv_dy[col*ny + row];
+            for (int row = 0; row < ny; row++)
+            {
+                // Calculate the flux of U
+                pKU[col*ny + row] = pU[col*ny + row] * du_dx[col*ny + row] + pV[col*ny + row] * du_dy[col*ny + row] + G*dh_dx[col*ny + row];
+                // Calculate the flux of V
+                pKV[col*ny + row] = pU[col*ny + row] * dv_dx[col*ny + row] + pV[col*ny + row] * dv_dy[col*ny + row] + G*dh_dy[col*ny + row];
+                // Calculate the flux of H
+                pKH[col*ny + row] = dhu_dx[col*ny + row] + dhv_dy[col*ny + row];
+            }
         }
     }
 
@@ -400,6 +411,7 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
  */
 void ShallowWater::DeriXLoop(const double* var, double* der) {
 
+    #pragma omp for schedule(static) 
     for (int row = 0; row < ny; row++)
     {
         // first 3 elements in row
@@ -428,6 +440,7 @@ void ShallowWater::DeriXLoop(const double* var, double* der) {
  */
 void ShallowWater::DeriYLoop(const double* var, double* der) {
 
+    #pragma omp for schedule(static) 
     for (int col = 0; col < nx; col++)
     {
         // first 3 elements in row

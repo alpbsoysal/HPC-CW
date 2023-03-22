@@ -5,10 +5,10 @@ CXXFLAGS = -Wall -g
 CXX = g++
 
 $(BIN)ShallowWater: $(BUILD)ShallowWater.o
-	$(CXX) -o $@ $^ -lboost_program_options -lblas
+	$(CXX) -fopenmp -o $@ $^ -lboost_program_options -lblas
 
 $(BUILD)%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -o $@ -c $<
+	$(CXX) $(CXXFLAGS) -fopenmp -o $@ -c $<
 
 test1:
 	$(BIN)ShallowWater --dT 0.1 --T 80 --Nx 100 --Ny 100 --ic 1 --method 1
