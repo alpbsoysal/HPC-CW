@@ -255,9 +255,9 @@ void ShallowWater::TimeIntegrate() {
         // Calculate y_n + dt*k3
         for (int i = 0; i < nx*ny; i++)
         {
-            tempU[i] = u[i] + dt*k3u[i]/2;
-            tempV[i] = v[i] + dt*k3v[i]/2;
-            tempH[i] = h[i] + dt*k3h[i]/2;
+            tempU[i] = u[i] + dt*k3u[i];
+            tempV[i] = v[i] + dt*k3v[i];
+            tempH[i] = h[i] + dt*k3h[i];
         }
 
         // Calculate k4 matrices
