@@ -217,14 +217,12 @@ void ShallowWater::TimeIntegrate() {
 
         // Calculate y_n + dt*k1/2
         #pragma omp for schedule(static)
-        for (int col = 0; col < nx; col++)
+        for (int i = 0; i < nx*ny; i++)
         {
-            for (int row = 0; row < ny; row++)
-            {
-                tempU[col*ny + row] = u[col*ny + row] + dt*k1u[col*ny + row]/2;
-                tempV[col*ny + row] = v[col*ny + row] + dt*k1v[col*ny + row]/2;
-                tempH[col*ny + row] = h[col*ny + row] + dt*k1h[col*ny + row]/2;
-            }
+
+            tempU[i] = u[i] + dt*k1u[i]*0.5;
+            tempV[i] = v[i] + dt*k1v[i]*0.5;
+            tempH[i] = h[i] + dt*k1h[i]*0.5;
         }
 
         // Calculate k2 matrices
@@ -240,14 +238,11 @@ void ShallowWater::TimeIntegrate() {
 
         // Calculate y_n + dt*k2/2
         #pragma omp for schedule(static)
-        for (int col = 0; col < nx; col++)
+        for (int i = 0; i < nx*ny; i++)
         {
-            for (int row = 0; row < ny; row++)
-            {
-                tempU[col*ny + row] = u[col*ny + row] + dt*k2u[col*ny + row]/2;
-                tempV[col*ny + row] = v[col*ny + row] + dt*k2v[col*ny + row]/2;
-                tempH[col*ny + row] = h[col*ny + row] + dt*k2h[col*ny + row]/2;
-            }
+            tempU[i] = u[i] + dt*k2u[i]*0.5;
+            tempV[i] = v[i] + dt*k2v[i]*0.5;
+            tempH[i] = h[i] + dt*k2h[i]*0.5;
         }
 
         // Calculate k3 matrices
@@ -263,14 +258,11 @@ void ShallowWater::TimeIntegrate() {
 
         // Calculate y_n + dt*k3
         #pragma omp for schedule(static)
-        for (int col = 0; col < nx; col++)
+        for (int i = 0; i < nx*ny; i++)
         {
-            for (int row = 0; row < ny; row++)
-            {
-                tempU[col*ny + row] = u[col*ny + row] + dt*k3u[col*ny + row];
-                tempV[col*ny + row] = v[col*ny + row] + dt*k3v[col*ny + row];
-                tempH[col*ny + row] = h[col*ny + row] + dt*k3h[col*ny + row];
-            }
+            tempU[i] = u[i] + dt*k3u[i];
+            tempV[i] = v[i] + dt*k3v[i];
+            tempH[i] = h[i] + dt*k3h[i];
         }
 
         // Calculate k4 matrices
@@ -286,14 +278,11 @@ void ShallowWater::TimeIntegrate() {
 
         // Calculate next iteration
         #pragma omp for schedule(static)
-        for (int col = 0; col < nx; col++)
+        for (int i = 0; i < nx*ny; i++)
         {
-            for (int row = 0; row < ny; row++)
-            {
-                u[col*ny + row] = u[col*ny + row] + dt/6*(k1u[col*ny + row] + 2*k2u[col*ny + row] + 2*k3u[col*ny + row] + k4u[col*ny + row]);
-                v[col*ny + row] = v[col*ny + row] + dt/6*(k1v[col*ny + row] + 2*k2v[col*ny + row] + 2*k3v[col*ny + row] + k4v[col*ny + row]);
-                h[col*ny + row] = h[col*ny + row] + dt/6*(k1h[col*ny + row] + 2*k2h[col*ny + row] + 2*k3h[col*ny + row] + k4h[col*ny + row]);
-            }
+                u[i] = u[i] + dt/6*(k1u[i] + 2*k2u[i] + 2*k3u[i] + k4u[i]);
+                v[i] = v[i] + dt/6*(k1v[i] + 2*k2v[i] + 2*k3v[i] + k4v[i]);
+                h[i] = h[i] + dt/6*(k1h[i] + 2*k2h[i] + 2*k3h[i] + k4h[i]);
         }
     }
 
@@ -349,16 +338,6 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
 
     #pragma omp parallel default(shared)
     {
-        // Calculate hu and hv
-        #pragma omp for schedule(static)
-        for (int col = 0; col < nx; col++)
-        {
-            for (int row = 0; row < ny; row++)
-            {
-                hu[col*ny + row] = pH[col*ny + row] * pU[col*ny + row];
-                hv[col*ny + row] = pH[col*ny + row] * pV[col*ny + row];
-            }
-        }
 
         // Calculate all derivatives
         DeriXLoop(pU, du_dx);
@@ -369,22 +348,20 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
         DeriYLoop(pV, dv_dy);
         DeriYLoop(pH, dh_dy);
 
-        DeriXLoop(hu, dhu_dx);
-        DeriYLoop(hv, dhv_dy);
-
         // Calculate fluxes
         #pragma omp for schedule(static)
-        for (int col = 0; col < nx; col++)
+        for (int i = 0; i < nx*ny; i++)
         {
-            for (int row = 0; row < ny; row++)
-            {
-                // Calculate the flux of U
-                pKU[col*ny + row] = pU[col*ny + row] * du_dx[col*ny + row] + pV[col*ny + row] * du_dy[col*ny + row] + G*dh_dx[col*ny + row];
-                // Calculate the flux of V
-                pKV[col*ny + row] = pU[col*ny + row] * dv_dx[col*ny + row] + pV[col*ny + row] * dv_dy[col*ny + row] + G*dh_dy[col*ny + row];
-                // Calculate the flux of H
-                pKH[col*ny + row] = dhu_dx[col*ny + row] + dhv_dy[col*ny + row];
-            }
+            // Calculate hu and hv
+            dhu_dx[i] = pH[i]*du_dx[i] + pU[i]*dh_dx[i];
+            dhv_dy[i] = pH[i]*dv_dy[i] + pV[i]*dh_dx[i];
+
+            // Calculate the flux of U
+            pKU[i] = pU[i] * du_dx[i] + pV[i] * du_dy[i] + G*dh_dx[i];
+            // Calculate the flux of V
+            pKV[i] = pU[i] * dv_dx[i] + pV[i] * dv_dy[i] + G*dh_dy[i];
+            // Calculate the flux of H
+            pKH[i] = dhu_dx[i] + dhv_dy[i];
         }
     }
 
@@ -411,24 +388,34 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
  */
 void ShallowWater::DeriXLoop(const double* var, double* der) {
 
+    double c1 = -1.0/60.0;
+    double c2 =  3.0/20.0;
+    double c3 = -3.0/4.0;
+    double c4 =  3.0/4.0;
+    double c5 = -3.0/20.0;
+    double c6 =  1.0/60.0;
+    double ddx = 1.0/dx;
+    int index;
+
     #pragma omp for schedule(static) 
     for (int row = 0; row < ny; row++)
     {
         // first 3 elements in row
-        der[0*ny + row] = (-1.0/60.0*var[(nx-3)*ny+row] + 3.0/20.0*var[(nx-2)*ny+row] - 3.0/4.0*var[(nx-1)*ny+row] + 3.0/4.0*var[ny+row] - 3.0/20.0*var[2*ny+row] + 1.0/60.0*var[3*ny+row])/dx;
-        der[1*ny + row] = (-1.0/60.0*var[(nx-2)*ny+row] + 3.0/20.0*var[(nx-1)*ny+row] - 3.0/4.0*var[row] + 3.0/4.0*var[2*ny+row] - 3.0/20.0*var[3*ny+row] + 1.0/60.0*var[4*ny+row])/dx;
-        der[2*ny + row] = (-1.0/60.0*var[(nx-1)*ny+row] + 3.0/20.0*var[row] - 3.0/4.0*var[ny+row] + 3.0/4.0*var[3*ny+row] - 3.0/20.0*var[4*ny+row] + 1.0/60.0*var[5*ny+row])/dx;
-
-        // last 3 elements in row
-        der[(nx-3)*ny + row] = (-1.0/60.0*var[(nx-6)*ny+row] + 3.0/20.0*var[(nx-5)*ny+row] - 3.0/4.0*var[(nx-4)*ny+row] + 3.0/4.0*var[(nx-2)*ny+row] - 3.0/20.0*var[(nx-1)*ny+row] + 1.0/60.0*var[row])/dx;
-        der[(nx-2)*ny + row] = (-1.0/60.0*var[(nx-5)*ny+row] + 3.0/20.0*var[(nx-4)*ny+row] - 3.0/4.0*var[(nx-3)*ny+row] + 3.0/4.0*var[(nx-1)*ny+row] - 3.0/20.0*var[row] + 1.0/60.0*var[ny+row])/dx;
-        der[(nx-1)*ny + row] = (-1.0/60.0*var[(nx-4)*ny+row] + 3.0/20.0*var[(nx-3)*ny+row] - 3.0/4.0*var[(nx-2)*ny+row] + 3.0/4.0*var[row] - 3.0/20.0*var[ny+row] + 1.0/60.0*var[2*ny+row])/dx;
+        der[row] = (c1*var[(nx-3)*ny+row] + c2*var[(nx-2)*ny+row] + c3*var[(nx-1)*ny+row] + c4*var[ny+row] + c5*var[2*ny+row] + c6*var[3*ny+row])*ddx;
+        der[1*ny + row] = (c1*var[(nx-2)*ny+row] + c2*var[(nx-1)*ny+row] + c3*var[row] + c4*var[2*ny+row] + c5*var[3*ny+row] + c6*var[4*ny+row])*ddx;
+        der[2*ny + row] = (c1*var[(nx-1)*ny+row] + c2*var[row] + c3*var[ny+row] + c4*var[3*ny+row] + c5*var[4*ny+row] + c6*var[5*ny+row])*ddx;
 
         // elements between first 3 and last 3 elements
         for (int col = 3; col < nx-3; col++)
         {
-            der[col*ny + row] = (-1.0/60.0*var[(col-3)*ny+row] + 3.0/20.0*var[(col-2)*ny+row] - 3.0/4.0*var[(col-1)*ny+row] + 3.0/4.0*var[(col+1)*ny+row] - 3.0/20.0*var[(col+2)*ny+row] + 1.0/60.0*var[(col+3)*ny+row])/dx;
+            index = col*ny+row;
+            der[index] = (c1*var[index-3*ny] + c2*var[index-2*ny] + c3*var[index-ny] + c4*var[index+ny] + c5*var[index+2*ny] + c6*var[index+3*ny])*ddx;
         }
+
+        // last 3 elements in row
+        der[(nx-3)*ny + row] = (c1*var[(nx-6)*ny+row] + c2*var[(nx-5)*ny+row] + c3*var[(nx-4)*ny+row] + c4*var[(nx-2)*ny+row] + c5*var[(nx-1)*ny+row] + c6*var[row])*ddx;
+        der[(nx-2)*ny + row] = (c1*var[(nx-5)*ny+row] + c2*var[(nx-4)*ny+row] + c3*var[(nx-3)*ny+row] + c4*var[(nx-1)*ny+row] + c5*var[row] + c6*var[ny+row])*ddx;
+        der[(nx-1)*ny + row] = (c1*var[(nx-4)*ny+row] + c2*var[(nx-3)*ny+row] + c3*var[(nx-2)*ny+row] + c4*var[row] + c5*var[ny+row] + c6*var[2*ny+row])*ddx;
     }
 }
 
@@ -440,24 +427,35 @@ void ShallowWater::DeriXLoop(const double* var, double* der) {
  */
 void ShallowWater::DeriYLoop(const double* var, double* der) {
 
-    #pragma omp for schedule(static) 
+    double c1 = -1.0/60.0;
+    double c2 =  3.0/20.0;
+    double c3 = -3.0/4.0;
+    double c4 =  3.0/4.0;
+    double c5 = -3.0/20.0;
+    double c6 =  1.0/60.0;
+    double ddy = 1.0/dy;
+    int index, colindex;
+
+    #pragma omp for schedule(static)
     for (int col = 0; col < nx; col++)
     {
+        colindex = col*ny;
         // first 3 elements in row
-        der[col*ny + 0] = (-1.0/60.0*var[col*ny+ny-3] + 3.0/20.0*var[col*ny+ny-2] - 3.0/4.0*var[col*ny+ny-1] + 3.0/4.0*var[col*ny+1] - 3.0/20.0*var[col*ny+2] + 1.0/60.0*var[col*ny+3])/dy;
-        der[col*ny + 1] = (-1.0/60.0*var[col*ny+ny-2] + 3.0/20.0*var[col*ny+ny-1] - 3.0/4.0*var[col*ny] + 3.0/4.0*var[col*ny+2] - 3.0/20.0*var[col*ny+3] + 1.0/60.0*var[col*ny+4])/dy;
-        der[col*ny + 2] = (-1.0/60.0*var[col*ny+ny-1] + 3.0/20.0*var[col*ny] - 3.0/4.0*var[col*ny+1] + 3.0/4.0*var[col*ny+3] - 3.0/20.0*var[col*ny+4] + 1.0/60.0*var[col*ny+5])/dy;
-
-        // last 3 elements in row
-        der[col*ny + ny-3] = (-1.0/60*var[col*ny+ny-6] + 3.0/20.0*var[col*ny+ny-5] - 3.0/4.0*var[col*ny+ny-4] + 3.0/4.0*var[col*ny+ny-2] - 3.0/20.0*var[col*ny+ny-1] + 1.0/60.0*var[col*ny])/dy;
-        der[col*ny + ny-2] = (-1.0/60*var[col*ny+ny-5] + 3.0/20.0*var[col*ny+ny-4] - 3.0/4.0*var[col*ny+ny-3] + 3.0/4.0*var[col*ny+ny-1] - 3.0/20.0*var[col*ny] + 1.0/60.0*var[col*ny+1])/dy;
-        der[col*ny + ny-1] = (-1.0/60*var[col*ny+ny-4] + 3.0/20.0*var[col*ny+ny-3] - 3.0/4.0*var[col*ny+ny-2] + 3.0/4.0*var[col*ny] - 3.0/20.0*var[col*ny+1] + 1.0/60.0*var[col*ny+2])/dy;
+        der[colindex + 0] = (c1*var[colindex+ny-3] + c2*var[colindex+ny-2] + c3*var[colindex+ny-1] + c4*var[colindex+1] + c5*var[colindex+2] + c6*var[colindex+3])*ddy;
+        der[colindex + 1] = (c1*var[colindex+ny-2] + c2*var[colindex+ny-1] + c3*var[colindex] + c4*var[colindex+2] + c5*var[colindex+3] + c6*var[colindex+4])*ddy;
+        der[colindex + 2] = (c1*var[colindex+ny-1] + c2*var[colindex] + c3*var[colindex+1] + c4*var[colindex+3] + c5*var[colindex+4] + c6*var[colindex+5])*ddy;
 
         // elements between first 3 and last 3 elements
         for (int row = 3; row < ny-3; row++)
         {
-            der[col*ny + row] = (-1.0/60.0*var[col*ny+row-3] + 3.0/20.0*var[col*ny+row-2] - 3.0/4.0*var[col*ny+row-1] + 3.0/4.0*var[col*ny+row+1] - 3.0/20.0*var[col*ny+row+2] + 1.0/60.0*var[col*ny+row+3])/dy;
+            index = colindex+row;
+            der[index] = (c1*var[index-3] + c2*var[index-2] + c3*var[index-1] + c4*var[index+1] + c5*var[index+2] + c6*var[index+3])*ddy;
         }
+
+        // last 3 elements in row
+        der[colindex + ny-3] = (c1*var[colindex+ny-6] + c2*var[colindex+ny-5] + c3*var[colindex+ny-4] + c4*var[colindex+ny-2] + c5*var[colindex+ny-1] + c6*var[colindex])*ddy;
+        der[colindex + ny-2] = (c1*var[colindex+ny-5] + c2*var[colindex+ny-4] + c3*var[colindex+ny-3] + c4*var[colindex+ny-1] + c5*var[colindex] + c6*var[colindex+1])*ddy;
+        der[colindex + ny-1] = (c1*var[colindex+ny-4] + c2*var[colindex+ny-3] + c3*var[colindex+ny-2] + c4*var[colindex] + c5*var[colindex+1] + c6*var[colindex+2])*ddy;
     }
 }
 
