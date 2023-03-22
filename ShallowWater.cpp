@@ -383,22 +383,30 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
  */
 void ShallowWater::DeriXLoop(const double* var, double* der) {
 
+    double c1 = -1.0/60.0;
+    double c2 =  3.0/20.0;
+    double c3 = -3.0/4.0;
+    double c4 =  3.0/4.0;
+    double c5 = -3.0/20.0;
+    double c6 =  1.0/60.0;
+    double ddx = 1.0/dx;
+
     for (int row = 0; row < ny; row++)
     {
         // first 3 elements in row
-        der[0*ny + row] = (-1.0/60.0*var[(nx-3)*ny+row] + 3.0/20.0*var[(nx-2)*ny+row] - 3.0/4.0*var[(nx-1)*ny+row] + 3.0/4.0*var[ny+row] - 3.0/20.0*var[2*ny+row] + 1.0/60.0*var[3*ny+row])/dx;
-        der[1*ny + row] = (-1.0/60.0*var[(nx-2)*ny+row] + 3.0/20.0*var[(nx-1)*ny+row] - 3.0/4.0*var[row] + 3.0/4.0*var[2*ny+row] - 3.0/20.0*var[3*ny+row] + 1.0/60.0*var[4*ny+row])/dx;
-        der[2*ny + row] = (-1.0/60.0*var[(nx-1)*ny+row] + 3.0/20.0*var[row] - 3.0/4.0*var[ny+row] + 3.0/4.0*var[3*ny+row] - 3.0/20.0*var[4*ny+row] + 1.0/60.0*var[5*ny+row])/dx;
+        der[row] = (c1*var[(nx-3)*ny+row] + c2*var[(nx-2)*ny+row] + c3*var[(nx-1)*ny+row] + c4*var[ny+row] + c5*var[2*ny+row] + c6*var[3*ny+row])*ddx;
+        der[1*ny + row] = (c1*var[(nx-2)*ny+row] + c2*var[(nx-1)*ny+row] + c3*var[row] + c4*var[2*ny+row] + c5*var[3*ny+row] + c6*var[4*ny+row])*ddx;
+        der[2*ny + row] = (c1*var[(nx-1)*ny+row] + c2*var[row] + c3*var[ny+row] + c4*var[3*ny+row] + c5*var[4*ny+row] + c6*var[5*ny+row])*ddx;
 
         // last 3 elements in row
-        der[(nx-3)*ny + row] = (-1.0/60.0*var[(nx-6)*ny+row] + 3.0/20.0*var[(nx-5)*ny+row] - 3.0/4.0*var[(nx-4)*ny+row] + 3.0/4.0*var[(nx-2)*ny+row] - 3.0/20.0*var[(nx-1)*ny+row] + 1.0/60.0*var[row])/dx;
-        der[(nx-2)*ny + row] = (-1.0/60.0*var[(nx-5)*ny+row] + 3.0/20.0*var[(nx-4)*ny+row] - 3.0/4.0*var[(nx-3)*ny+row] + 3.0/4.0*var[(nx-1)*ny+row] - 3.0/20.0*var[row] + 1.0/60.0*var[ny+row])/dx;
-        der[(nx-1)*ny + row] = (-1.0/60.0*var[(nx-4)*ny+row] + 3.0/20.0*var[(nx-3)*ny+row] - 3.0/4.0*var[(nx-2)*ny+row] + 3.0/4.0*var[row] - 3.0/20.0*var[ny+row] + 1.0/60.0*var[2*ny+row])/dx;
+        der[(nx-3)*ny + row] = (c1*var[(nx-6)*ny+row] + c2*var[(nx-5)*ny+row] + c3*var[(nx-4)*ny+row] + c4*var[(nx-2)*ny+row] + c5*var[(nx-1)*ny+row] + c6*var[row])*ddx;
+        der[(nx-2)*ny + row] = (c1*var[(nx-5)*ny+row] + c2*var[(nx-4)*ny+row] + c3*var[(nx-3)*ny+row] + c4*var[(nx-1)*ny+row] + c5*var[row] + c6*var[ny+row])*ddx;
+        der[(nx-1)*ny + row] = (c1*var[(nx-4)*ny+row] + c2*var[(nx-3)*ny+row] + c3*var[(nx-2)*ny+row] + c4*var[row] + c5*var[ny+row] + c6*var[2*ny+row])*ddx;
 
         // elements between first 3 and last 3 elements
         for (int col = 3; col < nx-3; col++)
         {
-            der[col*ny + row] = (-1.0/60.0*var[(col-3)*ny+row] + 3.0/20.0*var[(col-2)*ny+row] - 3.0/4.0*var[(col-1)*ny+row] + 3.0/4.0*var[(col+1)*ny+row] - 3.0/20.0*var[(col+2)*ny+row] + 1.0/60.0*var[(col+3)*ny+row])/dx;
+            der[col*ny + row] = (c1*var[(col-3)*ny+row] + c2*var[(col-2)*ny+row] + c3*var[(col-1)*ny+row] + c4*var[(col+1)*ny+row] + c5*var[(col+2)*ny+row] + c6*var[(col+3)*ny+row])*ddx;
         }
     }
 }
@@ -411,23 +419,31 @@ void ShallowWater::DeriXLoop(const double* var, double* der) {
  */
 void ShallowWater::DeriYLoop(const double* var, double* der) {
 
+    double c1 = -1.0/60.0;
+    double c2 =  3.0/20.0;
+    double c3 = -3.0/4.0;
+    double c4 =  3.0/4.0;
+    double c5 = -3.0/20.0;
+    double c6 =  1.0/60.0;
+    double ddy = 1.0/dy;
+
     for (int col = 0; col < nx; col++)
     {
         // first 3 elements in row
-        der[col*ny + 0] = (-1.0/60.0*var[col*ny+ny-3] + 3.0/20.0*var[col*ny+ny-2] - 3.0/4.0*var[col*ny+ny-1] + 3.0/4.0*var[col*ny+1] - 3.0/20.0*var[col*ny+2] + 1.0/60.0*var[col*ny+3])/dy;
-        der[col*ny + 1] = (-1.0/60.0*var[col*ny+ny-2] + 3.0/20.0*var[col*ny+ny-1] - 3.0/4.0*var[col*ny] + 3.0/4.0*var[col*ny+2] - 3.0/20.0*var[col*ny+3] + 1.0/60.0*var[col*ny+4])/dy;
-        der[col*ny + 2] = (-1.0/60.0*var[col*ny+ny-1] + 3.0/20.0*var[col*ny] - 3.0/4.0*var[col*ny+1] + 3.0/4.0*var[col*ny+3] - 3.0/20.0*var[col*ny+4] + 1.0/60.0*var[col*ny+5])/dy;
-
-        // last 3 elements in row
-        der[col*ny + ny-3] = (-1.0/60*var[col*ny+ny-6] + 3.0/20.0*var[col*ny+ny-5] - 3.0/4.0*var[col*ny+ny-4] + 3.0/4.0*var[col*ny+ny-2] - 3.0/20.0*var[col*ny+ny-1] + 1.0/60.0*var[col*ny])/dy;
-        der[col*ny + ny-2] = (-1.0/60*var[col*ny+ny-5] + 3.0/20.0*var[col*ny+ny-4] - 3.0/4.0*var[col*ny+ny-3] + 3.0/4.0*var[col*ny+ny-1] - 3.0/20.0*var[col*ny] + 1.0/60.0*var[col*ny+1])/dy;
-        der[col*ny + ny-1] = (-1.0/60*var[col*ny+ny-4] + 3.0/20.0*var[col*ny+ny-3] - 3.0/4.0*var[col*ny+ny-2] + 3.0/4.0*var[col*ny] - 3.0/20.0*var[col*ny+1] + 1.0/60.0*var[col*ny+2])/dy;
+        der[col*ny + 0] = (c1*var[col*ny+ny-3] + c2*var[col*ny+ny-2] + c3*var[col*ny+ny-1] + c4*var[col*ny+1] + c5*var[col*ny+2] + c6*var[col*ny+3])*ddy;
+        der[col*ny + 1] = (c1*var[col*ny+ny-2] + c2*var[col*ny+ny-1] + c3*var[col*ny] + c4*var[col*ny+2] + c5*var[col*ny+3] + c6*var[col*ny+4])*ddy;
+        der[col*ny + 2] = (c1*var[col*ny+ny-1] + c2*var[col*ny] + c3*var[col*ny+1] + c4*var[col*ny+3] + c5*var[col*ny+4] + c6*var[col*ny+5])*ddy;
 
         // elements between first 3 and last 3 elements
         for (int row = 3; row < ny-3; row++)
         {
-            der[col*ny + row] = (-1.0/60.0*var[col*ny+row-3] + 3.0/20.0*var[col*ny+row-2] - 3.0/4.0*var[col*ny+row-1] + 3.0/4.0*var[col*ny+row+1] - 3.0/20.0*var[col*ny+row+2] + 1.0/60.0*var[col*ny+row+3])/dy;
+            der[col*ny + row] = (c1*var[col*ny+row-3] + c2*var[col*ny+row-2] + c3*var[col*ny+row-1] + c4*var[col*ny+row+1] + c5*var[col*ny+row+2] + c6*var[col*ny+row+3])*ddy;
         }
+
+        // last 3 elements in row
+        der[col*ny + ny-3] = (c1*var[col*ny+ny-6] + c2*var[col*ny+ny-5] + c3*var[col*ny+ny-4] + c4*var[col*ny+ny-2] + c5*var[col*ny+ny-1] + c6*var[col*ny])*ddy;
+        der[col*ny + ny-2] = (c1*var[col*ny+ny-5] + c2*var[col*ny+ny-4] + c3*var[col*ny+ny-3] + c4*var[col*ny+ny-1] + c5*var[col*ny] + c6*var[col*ny+1])*ddy;
+        der[col*ny + ny-1] = (c1*var[col*ny+ny-4] + c2*var[col*ny+ny-3] + c3*var[col*ny+ny-2] + c4*var[col*ny] + c5*var[col*ny+1] + c6*var[col*ny+2]);
     }
 }
 
