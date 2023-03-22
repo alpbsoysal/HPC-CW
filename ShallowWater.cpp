@@ -330,13 +330,6 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
     double* dhu_dx = new double[nx*ny];
     double* dhv_dy = new double[nx*ny];
 
-    // Calculate hu and hv
-    for (int i = 0; i < nx*ny; i++)
-    {
-        hu[i] = pH[i] * pU[i];
-        hv[i] = pH[i] * pV[i];
-    }
-
     // Calculate all derivatives
     DeriXLoop(pU, du_dx);
     DeriYLoop(pU, du_dy);
@@ -346,12 +339,14 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
     DeriYLoop(pV, dv_dy);
     DeriYLoop(pH, dh_dy);
 
-    DeriXLoop(hu, dhu_dx);
-    DeriYLoop(hv, dhv_dy);
-
     // Calculate fluxes
     for (int i = 0; i < nx*ny; i++)
     {
+        // Calculate hu and hv
+
+        dhu_dx[i] = pH[i]*du_dx[i] + pU[i]*dh_dx[i];
+        dhv_dy[i] = pH[i]*dv_dy[i] + pV[i]*dh_dx[i];
+
         // Calculate the flux of U
         pKU[i] = pU[i] * du_dx[i] + pV[i] * du_dy[i] + G*dh_dx[i];
         // Calculate the flux of V
