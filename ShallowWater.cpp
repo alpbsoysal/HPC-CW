@@ -594,25 +594,29 @@ void ShallowWater::PopulateMatrix() {
 void ShallowWater::DeriXBLAS(const double* var, double* der) {
 
     double* tvar = new double[nx*ny];
-    double* bc = new double[6];
+    double* bc;
 
     cblas_dcopy(nx*ny, var, 1, tvar, 1);
 
-    #pragma omp parallel for default(shared) schedule(static)
-    for (int row = 0; row < ny; row++)
+    #pragma omp parallel private(bc) default(shared)
     {
-        cblas_dcopy(3, tvar+row, ny, bc, 1);
-        cblas_dcopy(3, tvar+ny*(nx-3)+row, ny, bc+3, 1);
+        bc = new double[6];
 
-        cblas_dgbmv(CblasColMajor, CblasNoTrans, nx, nx, 3, 3, 1.0, A, 7, tvar+row, ny, 0, der+row, ny);
+        #pragma omp  for schedule(static)
+        for (int row = 0; row < ny; row++)
+        {
+            cblas_dcopy(3, tvar+row, ny, bc, 1);
+            cblas_dcopy(3, tvar+ny*(nx-3)+row, ny, bc+3, 1);
 
-        cblas_dtpmv(CblasColMajor, CblasLower, CblasNoTrans, CblasNonUnit, 3, Alt, bc, 1);
-        cblas_dtpmv(CblasColMajor, CblasUpper, CblasNoTrans, CblasNonUnit, 3, Aut, bc+3, 1);
+            cblas_dgbmv(CblasColMajor, CblasNoTrans, nx, nx, 3, 3, 1.0, A, 7, tvar+row, ny, 0, der+row, ny);
 
-        cblas_daxpy(3, 1.0, bc, 1, der+ny*(nx-3)+row, ny);
-        cblas_daxpy(3, 1.0, bc+3, 1, der+row, ny);
+            cblas_dtpmv(CblasColMajor, CblasLower, CblasNoTrans, CblasNonUnit, 3, Alt, bc, 1);
+            cblas_dtpmv(CblasColMajor, CblasUpper, CblasNoTrans, CblasNonUnit, 3, Aut, bc+3, 1);
+
+            cblas_daxpy(3, 1.0, bc, 1, der+ny*(nx-3)+row, ny);
+            cblas_daxpy(3, 1.0, bc+3, 1, der+row, ny);
+        }
     }
-
 }
 
 /**
@@ -624,25 +628,29 @@ void ShallowWater::DeriXBLAS(const double* var, double* der) {
 void ShallowWater::DeriYBLAS(const double* var, double* der) {
 
     double* tvar = new double[nx*ny];
-    double* bc = new double[6];
+    double* bc;
 
     cblas_dcopy(nx*ny, var, 1, tvar, 1);
 
-    #pragma omp parallel for default(shared) schedule(static)
-    for (int col = 0; col < nx; col++)
+    #pragma omp parallel private(bc) default(shared)
     {
-        cblas_dcopy(3, tvar+col*ny, 1, bc, 1);
-        cblas_dcopy(3, tvar+col*ny+ny-3, 1, bc+3, 1);
+        bc = new double[6];
 
-        cblas_dgbmv(CblasColMajor, CblasNoTrans, ny, ny, 3, 3, 1.0, A, 7, tvar+col*ny, 1, 0, der+col*ny, 1);
+        #pragma omp for schedule(static)
+        for (int col = 0; col < nx; col++)
+        {
+            cblas_dcopy(3, tvar+col*ny, 1, bc, 1);
+            cblas_dcopy(3, tvar+col*ny+ny-3, 1, bc+3, 1);
 
-        cblas_dtpmv(CblasColMajor, CblasLower, CblasNoTrans, CblasNonUnit, 3, Alt, bc, 1);
-        cblas_dtpmv(CblasColMajor, CblasUpper, CblasNoTrans, CblasNonUnit, 3, Aut, bc+3, 1);
+            cblas_dgbmv(CblasColMajor, CblasNoTrans, ny, ny, 3, 3, 1.0, A, 7, tvar+col*ny, 1, 0, der+col*ny, 1);
 
-        cblas_daxpy(3, 1.0, bc, 1, der+col*ny+ny-3, 1);
-        cblas_daxpy(3, 1.0, bc+3, 1, der+col*ny, 1);
+            cblas_dtpmv(CblasColMajor, CblasLower, CblasNoTrans, CblasNonUnit, 3, Alt, bc, 1);
+            cblas_dtpmv(CblasColMajor, CblasUpper, CblasNoTrans, CblasNonUnit, 3, Aut, bc+3, 1);
+
+            cblas_daxpy(3, 1.0, bc, 1, der+col*ny+ny-3, 1);
+            cblas_daxpy(3, 1.0, bc+3, 1, der+col*ny, 1);
+        }
     }
-
 }
 
 /**
