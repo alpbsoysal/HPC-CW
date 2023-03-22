@@ -214,14 +214,12 @@ void ShallowWater::TimeIntegrate() {
         }
 
         // Calculate y_n + dt*k1/2
-        for (int col = 0; col < nx; col++)
+        for (int i = 0; i < nx*ny; i++)
         {
-            for (int row = 0; row < ny; row++)
-            {
-                tempU[col*ny + row] = u[col*ny + row] + dt*k1u[col*ny + row]/2;
-                tempV[col*ny + row] = v[col*ny + row] + dt*k1v[col*ny + row]/2;
-                tempH[col*ny + row] = h[col*ny + row] + dt*k1h[col*ny + row]/2;
-            }
+
+            tempU[i] = u[i] + dt*k1u[i]/2;
+            tempV[i] = v[i] + dt*k1v[i]/2;
+            tempH[i] = h[i] + dt*k1h[i]/2;
         }
 
         // Calculate k2 matrices
@@ -236,14 +234,11 @@ void ShallowWater::TimeIntegrate() {
         }
 
         // Calculate y_n + dt*k2/2
-        for (int col = 0; col < nx; col++)
+        for (int i = 0; i < nx*ny; i++)
         {
-            for (int row = 0; row < ny; row++)
-            {
-                tempU[col*ny + row] = u[col*ny + row] + dt*k2u[col*ny + row]/2;
-                tempV[col*ny + row] = v[col*ny + row] + dt*k2v[col*ny + row]/2;
-                tempH[col*ny + row] = h[col*ny + row] + dt*k2h[col*ny + row]/2;
-            }
+            tempU[i] = u[i] + dt*k2u[i]/2;
+            tempV[i] = v[i] + dt*k2v[i]/2;
+            tempH[i] = h[i] + dt*k2h[i]/2;
         }
 
         // Calculate k3 matrices
@@ -258,14 +253,11 @@ void ShallowWater::TimeIntegrate() {
         }
 
         // Calculate y_n + dt*k3
-        for (int col = 0; col < nx; col++)
+        for (int i = 0; i < nx*ny; i++)
         {
-            for (int row = 0; row < ny; row++)
-            {
-                tempU[col*ny + row] = u[col*ny + row] + dt*k3u[col*ny + row];
-                tempV[col*ny + row] = v[col*ny + row] + dt*k3v[col*ny + row];
-                tempH[col*ny + row] = h[col*ny + row] + dt*k3h[col*ny + row];
-            }
+            tempU[i] = u[i] + dt*k3u[i]/2;
+            tempV[i] = v[i] + dt*k3v[i]/2;
+            tempH[i] = h[i] + dt*k3h[i]/2;
         }
 
         // Calculate k4 matrices
@@ -280,14 +272,11 @@ void ShallowWater::TimeIntegrate() {
         }
 
         // Calculate next iteration
-        for (int col = 0; col < nx; col++)
+        for (int i = 0; i < nx*ny; i++)
         {
-            for (int row = 0; row < ny; row++)
-            {
-                u[col*ny + row] = u[col*ny + row] + dt/6*(k1u[col*ny + row] + 2*k2u[col*ny + row] + 2*k3u[col*ny + row] + k4u[col*ny + row]);
-                v[col*ny + row] = v[col*ny + row] + dt/6*(k1v[col*ny + row] + 2*k2v[col*ny + row] + 2*k3v[col*ny + row] + k4v[col*ny + row]);
-                h[col*ny + row] = h[col*ny + row] + dt/6*(k1h[col*ny + row] + 2*k2h[col*ny + row] + 2*k3h[col*ny + row] + k4h[col*ny + row]);
-            }
+                u[i] = u[i] + dt/6*(k1u[i] + 2*k2u[i] + 2*k3u[i] + k4u[i]);
+                v[i] = v[i] + dt/6*(k1v[i] + 2*k2v[i] + 2*k3v[i] + k4v[i]);
+                h[i] = h[i] + dt/6*(k1h[i] + 2*k2h[i] + 2*k3h[i] + k4h[i]);
         }
     }
 
@@ -364,17 +353,14 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
     DeriYLoop(hv, dhv_dy);
 
     // Calculate fluxes
-    for (int col = 0; col < nx; col++)
+    for (int i = 0; i < nx*ny; i++)
     {
-        for (int row = 0; row < ny; row++)
-        {
-            // Calculate the flux of U
-            pKU[col*ny + row] = pU[col*ny + row] * du_dx[col*ny + row] + pV[col*ny + row] * du_dy[col*ny + row] + G*dh_dx[col*ny + row];
-            // Calculate the flux of V
-            pKV[col*ny + row] = pU[col*ny + row] * dv_dx[col*ny + row] + pV[col*ny + row] * dv_dy[col*ny + row] + G*dh_dy[col*ny + row];
-            // Calculate the flux of H
-            pKH[col*ny + row] = dhu_dx[col*ny + row] + dhv_dy[col*ny + row];
-        }
+        // Calculate the flux of U
+        pKU[i] = pU[i] * du_dx[i] + pV[i] * du_dy[i] + G*dh_dx[i];
+        // Calculate the flux of V
+        pKV[i] = pU[i] * dv_dx[i] + pV[i] * dv_dy[i] + G*dh_dy[i];
+        // Calculate the flux of H
+        pKH[i] = dhu_dx[i] + dhv_dy[i];
     }
 
     delete[] hu;
