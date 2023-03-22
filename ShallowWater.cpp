@@ -499,20 +499,31 @@ void ShallowWater::CalculateFluxBLAS(double* pU, double* pV, double* pH, double*
 
     // Calculate fluxes
     // u
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pU, 1, du_dx, 1, 0.0, pKU, 1);
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pV, 1, du_dy, 1, 1.0, pKU, 1);
-    cblas_daxpy(nx*ny, -G, dh_dx, 1, pKU, 1);
-
-    // v
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pU, 1, dv_dx, 1, 0.0, pKV, 1);
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pV, 1, dv_dy, 1, 1.0, pKV, 1);
-    cblas_daxpy(nx*ny, -G, dh_dy, 1, pKV, 1);
-
-    // h
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pH, 1, du_dx, 1, 0.0, pKH, 1);
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pU, 1, dh_dx, 1, 1.0, pKH, 1);
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pH, 1, dv_dy, 1, 1.0, pKH, 1);
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pV, 1, dh_dy, 1, 1.0, pKH, 1);
+    #pragma omp parallel sections default(shared)
+    {
+        // u
+        #pragma omp section
+        {
+            cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pU, 1, du_dx, 1, 0.0, pKU, 1);
+            cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pV, 1, du_dy, 1, 1.0, pKU, 1);
+            cblas_daxpy(nx*ny, -G, dh_dx, 1, pKU, 1);
+        }
+        // v
+        #pragma omp section
+        {
+            cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pU, 1, dv_dx, 1, 0.0, pKV, 1);
+            cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pV, 1, dv_dy, 1, 1.0, pKV, 1);
+            cblas_daxpy(nx*ny, -G, dh_dy, 1, pKV, 1);
+        }
+        // h using product rule
+        #pragma omp section
+        {
+            cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pH, 1, du_dx, 1, 0.0, pKH, 1);
+            cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pU, 1, dh_dx, 1, 1.0, pKH, 1);
+            cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pH, 1, dv_dy, 1, 1.0, pKH, 1);
+            cblas_dgbmv(CblasColMajor, CblasNoTrans, nx*ny, nx*ny, 0, 0, -1.0, pV, 1, dh_dy, 1, 1.0, pKH, 1);
+        }
+    }
 
     delete[] hu;
     delete[] hv;
@@ -545,6 +556,7 @@ void ShallowWater::PopulateMatrix() {
 
     A = new double[7*n];
 
+    #pragma omp parallel for default(shared) schedule(static)
     for (int col = 0; col < n; col++)
     {
         A[col*7 + 0] = 1.0/60.0;
@@ -586,6 +598,7 @@ void ShallowWater::DeriXBLAS(const double* var, double* der) {
 
     cblas_dcopy(nx*ny, var, 1, tvar, 1);
 
+    #pragma omp parallel for default(shared) schedule(static)
     for (int row = 0; row < ny; row++)
     {
         cblas_dcopy(3, tvar+row, ny, bc, 1);
@@ -615,6 +628,7 @@ void ShallowWater::DeriYBLAS(const double* var, double* der) {
 
     cblas_dcopy(nx*ny, var, 1, tvar, 1);
 
+    #pragma omp parallel for default(shared) schedule(static)
     for (int col = 0; col < nx; col++)
     {
         cblas_dcopy(3, tvar+col*ny, 1, bc, 1);
