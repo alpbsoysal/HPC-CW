@@ -338,33 +338,29 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
     double* dhu_dx = new double[nx*ny];
     double* dhv_dy = new double[nx*ny];
 
-    #pragma omp parallel default(shared)
-    {
+    // Calculate all derivatives
+    DeriXLoop(pU, du_dx);
+    DeriYLoop(pU, du_dy);
+    DeriXLoop(pH, dh_dx);
 
-        // Calculate all derivatives
-        DeriXLoop(pU, du_dx);
-        DeriYLoop(pU, du_dy);
-        DeriXLoop(pH, dh_dx);
-
-        DeriXLoop(pV, dv_dx);
-        DeriYLoop(pV, dv_dy);
-        DeriYLoop(pH, dh_dy);
+    DeriXLoop(pV, dv_dx);
+    DeriYLoop(pV, dv_dy);
+    DeriYLoop(pH, dh_dy);
 
         // Calculate fluxes
-        #pragma omp for schedule(static)
-        for (int i = 0; i < nx*ny; i++)
-        {
-            // Calculate hu and hv
-            dhu_dx[i] = pH[i]*du_dx[i] + pU[i]*dh_dx[i];
-            dhv_dy[i] = pH[i]*dv_dy[i] + pV[i]*dh_dy[i];
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < nx*ny; i++)
+    {
+        // Calculate hu and hv
+        dhu_dx[i] = pH[i]*du_dx[i] + pU[i]*dh_dx[i];
+        dhv_dy[i] = pH[i]*dv_dy[i] + pV[i]*dh_dy[i];
 
-            // Calculate the flux of U
-            pKU[i] = pU[i] * du_dx[i] + pV[i] * du_dy[i] + G*dh_dx[i];
-            // Calculate the flux of V
-            pKV[i] = pU[i] * dv_dx[i] + pV[i] * dv_dy[i] + G*dh_dy[i];
-            // Calculate the flux of H
-            pKH[i] = dhu_dx[i] + dhv_dy[i];
-        }
+        // Calculate the flux of U
+        pKU[i] = pU[i] * du_dx[i] + pV[i] * du_dy[i] + G*dh_dx[i];
+        // Calculate the flux of V
+        pKV[i] = pU[i] * dv_dx[i] + pV[i] * dv_dy[i] + G*dh_dy[i];
+        // Calculate the flux of H
+        pKH[i] = dhu_dx[i] + dhv_dy[i];
     }
 
     delete[] hu;
@@ -399,7 +395,7 @@ void ShallowWater::DeriXLoop(const double* var, double* der) {
     double ddx = 1.0/dx;
     int index;
 
-    #pragma omp for schedule(static) 
+    #pragma omp parallel for default(shared) schedule(static)
     for (int row = 0; row < ny; row++)
     {
         // first 3 elements in row
@@ -438,7 +434,7 @@ void ShallowWater::DeriYLoop(const double* var, double* der) {
     double ddy = 1.0/dy;
     int index, colindex;
 
-    #pragma omp for schedule(static)
+    #pragma omp parallel for default(shared) schedule(static)
     for (int col = 0; col < nx; col++)
     {
         colindex = col*ny;
