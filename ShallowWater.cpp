@@ -47,6 +47,7 @@ class ShallowWater {
         int method;
         double dx, dy, dt;
         double x0, x1, y0, y1, T;
+        double c1, c2, c3, c4, c5, c6, ddx, ddy;
         double *u, *v, *h, *A, *Aut, *Alt;
 
     public:
@@ -87,6 +88,15 @@ ShallowWater::ShallowWater(const double& pDT, const double& pT, const int& pNx, 
 
     dx = 1;
     dy = 1;
+
+    c1 = -1.0/60.0;
+    c2 =  3.0/20.0;
+    c3 = -3.0/4.0;
+    c4 =  3.0/4.0;
+    c5 = -3.0/20.0;
+    c6 =  1.0/60.0;
+    ddx = 1.0/dx;
+    ddy = 1.0/dy;
 
     // Initialise user inputs
     dt = pDT;
@@ -412,13 +422,6 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
  */
 void ShallowWater::DeriXLoop(const double* var, double* der) {
 
-    double c1 = -1.0/60.0;
-    double c2 =  3.0/20.0;
-    double c3 = -3.0/4.0;
-    double c4 =  3.0/4.0;
-    double c5 = -3.0/20.0;
-    double c6 =  1.0/60.0;
-    double ddx = 1.0/dx;
     int index;
 
     #pragma omp parallel for default(shared) schedule(static)
@@ -451,13 +454,6 @@ void ShallowWater::DeriXLoop(const double* var, double* der) {
  */
 void ShallowWater::DeriYLoop(const double* var, double* der) {
 
-    double c1 = -1.0/60.0;
-    double c2 =  3.0/20.0;
-    double c3 = -3.0/4.0;
-    double c4 =  3.0/4.0;
-    double c5 = -3.0/20.0;
-    double c6 =  1.0/60.0;
-    double ddy = 1.0/dy;
     int index, colindex;
 
     #pragma omp parallel for default(shared) schedule(static)
@@ -581,30 +577,30 @@ void ShallowWater::PopulateMatrix() {
     #pragma omp parallel for default(shared) schedule(static)
     for (int col = 0; col < n; col++)
     {
-        A[col*7 + 0] = 1.0/60.0;
-        A[col*7 + 1] = -3.0/20.0;
-        A[col*7 + 2] = 3.0/4.0;
+        A[col*7 + 0] = c6;
+        A[col*7 + 1] = c5;
+        A[col*7 + 2] = c4;
         A[col*7 + 3] = 0.0;
-        A[col*7 + 4] = -3.0/4.0;
-        A[col*7 + 5] = 3.0/20.0;
-        A[col*7 + 6] = -1.0/60.0; 
+        A[col*7 + 4] = c3;
+        A[col*7 + 5] = c2;
+        A[col*7 + 6] = c1; 
     }
 
     Aut = new double[6];
-    Aut[0] = -1.0/60.0;
-    Aut[1] = 3.0/20.0;
-    Aut[2] = -1.0/60.0;
-    Aut[3] = -3.0/4.0;
-    Aut[4] = 3.0/20.0;
-    Aut[5] = -1.0/60.0;
+    Aut[0] = c1;
+    Aut[1] = c2;
+    Aut[2] = c1;
+    Aut[3] = c3;
+    Aut[4] = c2;
+    Aut[5] = c1;
 
     Alt = new double[6];
-    Alt[0] = 1.0/60.0;
-    Alt[1] = -3.0/20.0;
-    Alt[2] = 3.0/4.0;
-    Alt[3] = 1.0/60.0;
-    Alt[4] = -3.0/20.0;
-    Alt[5] = 1.0/60.0;
+    Alt[0] = c6;
+    Alt[1] = c5;
+    Alt[2] = c4;
+    Alt[3] = c6;
+    Alt[4] = c5;
+    Alt[5] = c6;
 }
 
 /**
@@ -696,11 +692,11 @@ void ShallowWater::FileOutput() {
             out << x << " " << y << " ";
 
             // Output variables
-            out << u[col*ny + row] << " " << v[col*ny + row] << " " << h[col*ny + row] << endl;
+            out << u[col*ny + row] << " " << v[col*ny + row] << " " << h[col*ny + row] << "\n";
         }
 
         // Output empty line after column
-        out << endl;
+        out << "\n";
     }
 
     out.close();
