@@ -137,41 +137,67 @@ void ShallowWater::SetInitialConditions(const int& ic) {
     // Mean surface height
     double Hm = 10.0;
 
-    double x, y;
+    double x, y, val1, val2;
 
-    #pragma omp parallel for default(shared) private(x, y) schedule(static)
-    for (int row = 0; row < ny; row++)
+    switch (ic)
     {
+    case 1:
+        #pragma omp parallel for default(shared) private(x, y, val1, val2) schedule(static)
         for (int col = 0; col < nx; col++)
         {
-            // Calculate local x and y values
             x = x0 + col*dx;
-            y = y0 + row*dy;
+            val1 = Hm + exp(-(x - 50)*(x - 50)*0.04);
 
-            // Set both velocity fields to zero
-            u[col*ny + row] = 0;
-            v[col*ny + row] = 0;
-
-            // Set the height field based on the initial condition chosen
-            switch (ic)
+            for (int row = 0; row < ny; row++)
             {
-            case 1:
-                h[col*ny + row] = Hm + exp(-pow((x - 50), 2) / 25);
-                break;
-
-            case 2:
-                h[col*ny + row] = Hm + exp(-pow((y - 50), 2) / 25);
-                break;
-
-            case 3:
-                h[col*ny + row] = Hm + exp(-(pow((x - 50), 2) + pow((y - 50), 2)) / 25);
-                break;
-
-            case 4:
-                h[col*ny + row] = Hm + exp(-(pow((x - 25), 2) + pow((y - 25), 2)) / 25) + exp(-(pow((x - 75), 2) + pow((y - 75), 2)) / 25);
-                break;
+                h[col*ny + row] = val1;
             }
         }
+        break;
+
+    case 2:
+        #pragma omp parallel for default(shared) private(x, y) schedule(static)
+        for (int row = 0; row < ny; row++)
+        {
+            y = y0 + row*dy;
+            val1 = Hm + exp(-(y - 50)*(y - 50)*0.04);
+
+            for (int col = 0; col < nx; col++)
+            {
+                h[col*ny + row] = val1;
+            }
+        }
+        break;
+
+    case 3:
+        #pragma omp parallel for default(shared) private(x, y) schedule(static)
+        for (int col = 0; col < nx; col++)
+        {
+            x = x0 + col*dx;
+            val1 = ((x - 50)*(x - 50));
+
+            for (int row = 0; row < ny; row++)
+            {
+                y = y0 + row*dy;
+                h[col*ny + row] = Hm + exp(-(val1 + (y - 50)*(y - 50))*0.04);
+            }
+        }
+        break;
+
+    case 4:
+        #pragma omp parallel for default(shared) private(x, y) schedule(static)
+        for (int col = 0; col < nx; col++)
+        {
+            x = x0 + col*dx;
+            val1 = ((x - 25)*(x - 25));
+            val2 = ((x - 75)*(x - 75));
+
+            for (int row = 0; row < ny; row++)
+            {
+                y = y0 + row*dy;
+                h[col*ny + row] = Hm + exp(-(val1 + (y - 25)*(y - 25))*0.04) + exp(-(val2 + (y - 75)*(y - 75))*0.04);            }
+        }
+        break;
     }
 }
 
