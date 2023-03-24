@@ -6,3 +6,4 @@ latex
 output.txt
 initial.er
 testing
+*.er/*

@@ -359,31 +359,45 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
     double* dhu_dx = new double[nx*ny];
     double* dhv_dy = new double[nx*ny];
 
-    // Calculate all derivatives
-    DeriXLoop(pU, du_dx);
-    DeriYLoop(pU, du_dy);
-    DeriXLoop(pH, dh_dx);
-
-    DeriXLoop(pV, dv_dx);
-    DeriYLoop(pV, dv_dy);
-    DeriYLoop(pH, dh_dy);
-
-        // Calculate fluxes
-    #pragma omp parallel for schedule(static)
-    for (int i = 0; i < nx*ny; i++)
+    #pragma omp parallel default(shared) num_threads(3)
     {
-        // Calculate hu and hv
-        dhu_dx[i] = pH[i]*du_dx[i] + pU[i]*dh_dx[i];
-        dhv_dy[i] = pH[i]*dv_dy[i] + pV[i]*dh_dy[i];
+        // Calculate all derivatives
+        #pragma omp sections
+        {
+            #pragma omp section
+            DeriXLoop(pU, du_dx);
 
-        // Calculate the flux of U
-        pKU[i] = pU[i] * du_dx[i] + pV[i] * du_dy[i] + G*dh_dx[i];
-        // Calculate the flux of V
-        pKV[i] = pU[i] * dv_dx[i] + pV[i] * dv_dy[i] + G*dh_dy[i];
-        // Calculate the flux of H
-        pKH[i] = dhu_dx[i] + dhv_dy[i];
+            #pragma omp section
+            DeriYLoop(pU, du_dy);
+
+            #pragma omp section
+            DeriXLoop(pH, dh_dx);
+
+            #pragma omp section
+            DeriXLoop(pV, dv_dx);
+
+            #pragma omp section
+            DeriYLoop(pV, dv_dy);
+
+            #pragma omp section
+            DeriYLoop(pH, dh_dy);
+        }
+            // Calculate fluxes
+        #pragma omp for schedule(static)
+        for (int i = 0; i < nx*ny; i++)
+        {
+            // Calculate hu and hv
+            dhu_dx[i] = pH[i]*du_dx[i] + pU[i]*dh_dx[i];
+            dhv_dy[i] = pH[i]*dv_dy[i] + pV[i]*dh_dy[i];
+
+            // Calculate the flux of U
+            pKU[i] = pU[i] * du_dx[i] + pV[i] * du_dy[i] + G*dh_dx[i];
+            // Calculate the flux of V
+            pKV[i] = pU[i] * dv_dx[i] + pV[i] * dv_dy[i] + G*dh_dy[i];
+            // Calculate the flux of H
+            pKH[i] = dhu_dx[i] + dhv_dy[i];
+        }
     }
-
     delete[] hu;
     delete[] hv;
 
@@ -409,7 +423,7 @@ void ShallowWater::DeriXLoop(const double* var, double* der) {
 
     int index;
 
-    #pragma omp parallel for default(shared) schedule(static)
+    #pragma omp parallel for default(shared) schedule(static) num_threads(2)
     for (int row = 0; row < ny; row++)
     {
         // first 3 elements in row
@@ -441,7 +455,7 @@ void ShallowWater::DeriYLoop(const double* var, double* der) {
 
     int index, colindex;
 
-    #pragma omp parallel for default(shared) schedule(static)
+    #pragma omp parallel for default(shared) schedule(static) num_threads(2)
     for (int col = 0; col < nx; col++)
     {
         colindex = col*ny;
@@ -688,6 +702,9 @@ void ShallowWater::FileOutput() {
 }
 
 int main(int argc, char* argv[]) {
+
+    omp_set_nested(1);
+    omp_set_dynamic(0);
 
     po::options_description opts("Solves the shallow water equations");
 
