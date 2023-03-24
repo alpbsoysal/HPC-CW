@@ -21,21 +21,6 @@ namespace po = boost::program_options;
 
 constexpr double G = 9.81;
 
-void PrintMatrix(int n, int m, double* H) {
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < m; ++j) {
-            cout << setw(10) << H[j*n+i] << " ";
-        }
-        cout << endl;
-    }
-}
-
-void PrintVector(int n, double* u) {
-    for (int i = 0; i < n; ++i) {
-        cout << u[i] << endl;
-    }
-}
-
 /**
  * @class ShallowWater
  * @brief Implements a numerical solution to the shallow water equations.
