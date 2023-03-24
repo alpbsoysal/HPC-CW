@@ -2,7 +2,7 @@
  * @file ShallowWater.cpp
  * @author Alp Soysal
  * @brief A program that solves the shallow water equations using 6th order central differencing and 4th order runge-kutta, for the HPC module coursework.
- * @version 0.2
+ * @version 1.0
  * @date 2023-03-19
  */
 
@@ -11,14 +11,14 @@
 #include <fstream>
 #include <cmath>
 
-using namespace std;
-
 #include <boost/program_options.hpp>
 #include <cblas.h>
 #include <omp.h>
 
+using namespace std;
 namespace po = boost::program_options;
 
+// Set gravity compile constant
 constexpr double G = 9.81;
 
 /**
@@ -43,11 +43,11 @@ class ShallowWater {
         void SetInitialConditions(const int& ic);
         void TimeIntegrate();
 
-        void CalculateFluxLoop(double* pU, double* pV, double* pH, double* pKU, double* pKV, double* pKH);
+        void CalculateFluxLoop(const double* pU, const double* pV, const double* pH, double* pKU, double* pKV, double* pKH);
         void DeriXLoop(const double* var, double* der);
         void DeriYLoop(const double* var, double* der);
 
-        void CalculateFluxBLAS(double* pU, double* pV, double* pH, double* pKU, double* pKV, double* pKH);
+        void CalculateFluxBLAS(const double* pU, const double* pV, const double* pH, double* pKU, double* pKV, double* pKH);
         void PopulateMatrix();
         void DeriXBLAS(const double* var, double* der);
         void DeriYBLAS(const double* var, double* der);
@@ -117,6 +117,7 @@ ShallowWater::~ShallowWater() {
     delete[] v;
     delete[] h;
     if(method) {
+        delete[] A;
         delete[] Aut;
         delete[] Alt;
     }
@@ -132,14 +133,17 @@ void ShallowWater::SetInitialConditions(const int& ic) {
     // Mean surface height
     double Hm = 10.0;
 
+    // Declare private variables
     double x, y, val1, val2;
 
+    // Loop inside switch for efficiency
     switch (ic)
     {
     case 1:
         #pragma omp parallel for default(shared) private(x, y, val1, val2) schedule(static)
         for (int col = 0; col < nx; col++)
         {
+            // Precompute possible values
             x = x0 + col*dx;
             val1 = Hm + exp(-(x - 50)*(x - 50)*0.04);
 
@@ -190,7 +194,8 @@ void ShallowWater::SetInitialConditions(const int& ic) {
             for (int row = 0; row < ny; row++)
             {
                 y = y0 + row*dy;
-                h[col*ny + row] = Hm + exp(-(val1 + (y - 25)*(y - 25))*0.04) + exp(-(val2 + (y - 75)*(y - 75))*0.04);            }
+                h[col*ny + row] = Hm + exp(-(val1 + (y - 25)*(y - 25))*0.04) + exp(-(val2 + (y - 75)*(y - 75))*0.04);
+            }
         }
         break;
     }
@@ -222,7 +227,7 @@ void ShallowWater::TimeIntegrate() {
     double* tempH = new double[nx*ny];
 
     // Total number of timesteps
-    int nt = T/dt + 1;
+    int nt = T/dt;
 
     // Iterate over timesteps and solve the equation
     for (int i = 0; i < nt; i++)
@@ -343,7 +348,7 @@ void ShallowWater::TimeIntegrate() {
  * @param pKV Output matrix for the flux of V
  * @param pKH Output matrix for the flux of H
  */
-void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double* pKU, double* pKV, double* pKH) {
+void ShallowWater::CalculateFluxLoop(const double* pU, const double* pV, const double* pH, double* pKU, double* pKV, double* pKH) {
 
     double* hu = new double[nx*ny];
     double* hv = new double[nx*ny];
@@ -368,20 +373,20 @@ void ShallowWater::CalculateFluxLoop(double* pU, double* pV, double* pH, double*
     DeriYLoop(pV, dv_dy);
     DeriYLoop(pH, dh_dy);
 
-        // Calculate fluxes
+    // Calculate fluxes
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < nx*ny; i++)
     {
-        // Calculate hu and hv
+        // Calculate hu and hv using product rule
         dhu_dx[i] = pH[i]*du_dx[i] + pU[i]*dh_dx[i];
         dhv_dy[i] = pH[i]*dv_dy[i] + pV[i]*dh_dy[i];
 
         // Calculate the flux of U
-        pKU[i] = pU[i] * du_dx[i] + pV[i] * du_dy[i] + G*dh_dx[i];
+        pKU[i] = - pU[i] * du_dx[i] - pV[i] * du_dy[i] - G*dh_dx[i];
         // Calculate the flux of V
-        pKV[i] = pU[i] * dv_dx[i] + pV[i] * dv_dy[i] + G*dh_dy[i];
+        pKV[i] = - pU[i] * dv_dx[i] - pV[i] * dv_dy[i] - G*dh_dy[i];
         // Calculate the flux of H
-        pKH[i] = dhu_dx[i] + dhv_dy[i];
+        pKH[i] = - dhu_dx[i] - dhv_dy[i];
     }
 
     delete[] hu;
@@ -409,7 +414,7 @@ void ShallowWater::DeriXLoop(const double* var, double* der) {
 
     int index;
 
-    #pragma omp parallel for default(shared) schedule(static)
+    #pragma omp parallel for private(index) default(shared) schedule(static)
     for (int row = 0; row < ny; row++)
     {
         // first 3 elements in row
@@ -441,10 +446,11 @@ void ShallowWater::DeriYLoop(const double* var, double* der) {
 
     int index, colindex;
 
-    #pragma omp parallel for default(shared) schedule(static)
+    #pragma omp parallel for private(index, colindex) default(shared) schedule(static)
     for (int col = 0; col < nx; col++)
     {
         colindex = col*ny;
+
         // first 3 elements in row
         der[colindex + 0] = (c1*var[colindex+ny-3] + c2*var[colindex+ny-2] + c3*var[colindex+ny-1] + c4*var[colindex+1] + c5*var[colindex+2] + c6*var[colindex+3])*ddy;
         der[colindex + 1] = (c1*var[colindex+ny-2] + c2*var[colindex+ny-1] + c3*var[colindex] + c4*var[colindex+2] + c5*var[colindex+3] + c6*var[colindex+4])*ddy;
@@ -474,7 +480,7 @@ void ShallowWater::DeriYLoop(const double* var, double* der) {
  * @param pKV Output matrix for V
  * @param pKH Output matrix for h
  */
-void ShallowWater::CalculateFluxBLAS(double* pU, double* pV, double* pH, double* pKU, double* pKV, double* pKH) {
+void ShallowWater::CalculateFluxBLAS(const double* pU, const double* pV, const double* pH, double* pKU, double* pKV, double* pKH) {
 
     double* hu = new double[nx*ny];
     double* hv = new double[nx*ny];
@@ -491,7 +497,6 @@ void ShallowWater::CalculateFluxBLAS(double* pU, double* pV, double* pH, double*
     double* dhv_dy = new double[nx*ny];
 
     // Calculate all derivatives
-
     DeriXBLAS(pU, du_dx);
     DeriYBLAS(pU, du_dy);
     DeriXBLAS(pH, dh_dx);
@@ -501,7 +506,6 @@ void ShallowWater::CalculateFluxBLAS(double* pU, double* pV, double* pH, double*
     DeriYBLAS(pH, dh_dy);
 
     // Calculate fluxes
-    // u
     #pragma omp parallel sections default(shared)
     {
         // u
@@ -550,6 +554,7 @@ void ShallowWater::PopulateMatrix() {
 
     int n;
 
+    // Choose largest width, creating one stencil Matrix is sufficient
     if (nx > ny)
     {
         n = nx;
@@ -559,6 +564,7 @@ void ShallowWater::PopulateMatrix() {
 
     A = new double[7*n];
 
+    // Populate A using banded storage
     #pragma omp parallel for default(shared) schedule(static)
     for (int col = 0; col < n; col++)
     {
@@ -571,6 +577,8 @@ void ShallowWater::PopulateMatrix() {
         A[col*7 + 6] = c1; 
     }
 
+    // For boundary conditions, populate packed triangular 3x3 matrices
+    // Upper right triangle
     Aut = new double[6];
     Aut[0] = c1;
     Aut[1] = c2;
@@ -579,6 +587,7 @@ void ShallowWater::PopulateMatrix() {
     Aut[4] = c2;
     Aut[5] = c1;
 
+    // Lower left triangle
     Alt = new double[6];
     Alt[0] = c6;
     Alt[1] = c5;
@@ -596,9 +605,11 @@ void ShallowWater::PopulateMatrix() {
  */
 void ShallowWater::DeriXBLAS(const double* var, double* der) {
 
+    // Allocate temporary storage arrays
     double* tvar = new double[nx*ny];
     double* bc;
 
+    // Copy var as BLAS modifies it
     cblas_dcopy(nx*ny, var, 1, tvar, 1);
 
     #pragma omp parallel private(bc) default(shared)
@@ -608,14 +619,18 @@ void ShallowWater::DeriXBLAS(const double* var, double* der) {
         #pragma omp  for schedule(static)
         for (int row = 0; row < ny; row++)
         {
+            // Copy first 3 and last 3 elements of each row into boundary condition array
             cblas_dcopy(3, tvar+row, ny, bc, 1);
             cblas_dcopy(3, tvar+ny*(nx-3)+row, ny, bc+3, 1);
 
+            // Multiply stencil with row of input field. Row accessed using pointer arithmethic
             cblas_dgbmv(CblasColMajor, CblasNoTrans, nx, nx, 3, 3, 1.0, A, 7, tvar+row, ny, 0, der+row, ny);
 
+            // Calculate contributions due to periodic boundary conditions and store back in BC
             cblas_dtpmv(CblasColMajor, CblasLower, CblasNoTrans, CblasNonUnit, 3, Alt, bc, 1);
             cblas_dtpmv(CblasColMajor, CblasUpper, CblasNoTrans, CblasNonUnit, 3, Aut, bc+3, 1);
 
+            // Add boundary condition contributions to derivative matrixS
             cblas_daxpy(3, 1.0, bc, 1, der+ny*(nx-3)+row, ny);
             cblas_daxpy(3, 1.0, bc+3, 1, der+row, ny);
         }
@@ -630,9 +645,11 @@ void ShallowWater::DeriXBLAS(const double* var, double* der) {
  */
 void ShallowWater::DeriYBLAS(const double* var, double* der) {
 
+    // Allocate temporary storage arrays
     double* tvar = new double[nx*ny];
     double* bc;
 
+    // Copy var as BLAS modifies it
     cblas_dcopy(nx*ny, var, 1, tvar, 1);
 
     #pragma omp parallel private(bc) default(shared)
@@ -642,14 +659,18 @@ void ShallowWater::DeriYBLAS(const double* var, double* der) {
         #pragma omp for schedule(static)
         for (int col = 0; col < nx; col++)
         {
+            // Copy first 3 and last 3 elements of each column into boundary condition array
             cblas_dcopy(3, tvar+col*ny, 1, bc, 1);
             cblas_dcopy(3, tvar+col*ny+ny-3, 1, bc+3, 1);
 
+            // Multiply stencil with column of input field. Column accessed using pointer arithmethic
             cblas_dgbmv(CblasColMajor, CblasNoTrans, ny, ny, 3, 3, 1.0, A, 7, tvar+col*ny, 1, 0, der+col*ny, 1);
 
+            // Calculate contributions due to periodic boundary conditions and store back in BC
             cblas_dtpmv(CblasColMajor, CblasLower, CblasNoTrans, CblasNonUnit, 3, Alt, bc, 1);
             cblas_dtpmv(CblasColMajor, CblasUpper, CblasNoTrans, CblasNonUnit, 3, Aut, bc+3, 1);
 
+            // Add boundary condition contributions to derivative matrixS
             cblas_daxpy(3, 1.0, bc, 1, der+col*ny+ny-3, 1);
             cblas_daxpy(3, 1.0, bc+3, 1, der+col*ny, 1);
         }
@@ -661,6 +682,7 @@ void ShallowWater::DeriYBLAS(const double* var, double* der) {
  */
 void ShallowWater::FileOutput() {
 
+    // Open file
     ofstream out("output.txt", ios::out | ios::trunc);
 
     out.precision(5);
@@ -673,6 +695,7 @@ void ShallowWater::FileOutput() {
         {
             x = x0 + col*dx;
             y = y0 + row*dy;
+
             // Output x and y location
             out << x << " " << y << " ";
 
@@ -684,6 +707,7 @@ void ShallowWater::FileOutput() {
         out << "\n";
     }
 
+    // Close file
     out.close();
 }
 
@@ -691,6 +715,7 @@ int main(int argc, char* argv[]) {
 
     po::options_description opts("Solves the shallow water equations");
 
+    // Define command line options
     opts.add_options()
         ("help,h", "Print help message")
         ("dt", po::value<double>()->default_value(0.1), "Timestep to use")
@@ -700,16 +725,19 @@ int main(int argc, char* argv[]) {
         ("method", po::value<int>()->default_value(0), "Method to use. 0 for LOOP-based and 1 for BLAS-based.")
         ("ic", po::value<int>(), "Initial condition to use, 1-4");
 
+    // Parse command line options
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, opts), vm);
     po::notify(vm);
 
+    // Produce output text
     if (vm.count("help"))
     {
         cout << opts << endl;
         return 0;
     }
 
+    // Store inputs
     const double dT = vm["dt"].as<double>();
     const double T  = vm["T"].as<double>();
     const int Nx = vm["Nx"].as<int>();
@@ -717,6 +745,7 @@ int main(int argc, char* argv[]) {
     int ic;
     int method;
 
+    // Checking if --ic is valid
     if (vm.count("ic")){
 
         ic = vm["ic"].as<int>();
@@ -732,6 +761,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    // Checking if --method is valid
     if (vm.count("method")){
 
         method = vm["method"].as<int>();
@@ -741,10 +771,6 @@ int main(int argc, char* argv[]) {
             cout << "Method not valid. Valid range is 0-1. Exiting program." << endl;
             return -1;
         }
-
-    } else {
-        cout << "Method not specified. Exiting program." << endl;
-        return -1;
     }
 
     // Create solver object
