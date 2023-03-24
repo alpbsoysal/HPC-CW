@@ -116,7 +116,8 @@ ShallowWater::~ShallowWater() {
     delete[] u;
     delete[] v;
     delete[] h;
-    if(method) {
+    if(method)
+    {
         delete[] A;
         delete[] Aut;
         delete[] Alt;
@@ -746,8 +747,8 @@ int main(int argc, char* argv[]) {
     int method;
 
     // Checking if --ic is valid
-    if (vm.count("ic")){
-
+    if (vm.count("ic"))
+    {
         ic = vm["ic"].as<int>();
 
         if (ic < 1 || 4 < ic)
@@ -762,8 +763,8 @@ int main(int argc, char* argv[]) {
     }
 
     // Checking if --method is valid
-    if (vm.count("method")){
-
+    if (vm.count("method"))
+    {
         method = vm["method"].as<int>();
 
         if (method < 0 || 1 < method)
